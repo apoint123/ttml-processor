@@ -175,18 +175,17 @@ describe("TTML Integration Test", () => {
 
 	test("L1: 应当合并 Head 中的翻译", () => {
 		const l1 = result.lines.find((l) => l.id === "L1")!;
-		expect(l1.translations!["en-US"].text).toBe(
-			"This is the first line (Vocalist A)",
-		);
-		expect(l1.translations!["zh-Hans-CN"].text).toBe(
-			"这是第一行歌词 (演唱者A)",
-		);
+		const transEn = l1.translations!.find((t) => t.language === "en-US")!;
+		const transZh = l1.translations!.find((t) => t.language === "zh-Hans-CN")!;
+
+		expect(transEn.text).toBe("This is the first line (Vocalist A)");
+		expect(transZh.text).toBe("这是第一行歌词 (演唱者A)");
 	});
 
 	test("L1: 应当合并 Head 中的逐字音译", () => {
 		const l1 = result.lines.find((l) => l.id === "L1")!;
-		const roman = l1.romanizations!["ja-Latn"];
-		const romanWords = l1.romanizations!["ja-Latn"].words!;
+		const roman = l1.romanizations!.find((r) => r.language === "ja-Latn")!;
+		const romanWords = roman.words!;
 
 		expect(roman).toBeDefined();
 		expect(roman.words).toBeArray();
@@ -222,20 +221,24 @@ describe("TTML Integration Test", () => {
 		const bg = l3.backgroundVocals![0]!;
 		expect(bg.text).toBe("背景");
 
-		expect(bg.translations!.en.text).toBe("Background");
+		const transEn = bg.translations!.find((t) => t.language === "en")!;
+		expect(transEn.text).toBe("Background");
 
-		expect(bg.romanizations!["ja-Latn"].text).toBe("haikei");
+		const roman = bg.romanizations!.find((r) => r.language === "ja-Latn")!;
+		expect(roman.text).toBe("haikei");
 	});
 
 	test("L3: 应当同时保留 Body 内联翻译(en)和 Head 注入翻译(en-US)", () => {
 		const l3 = result.lines.find((l) => l.id === "L3")!;
 		const bg = l3.backgroundVocals![0]!;
 
-		expect(bg.translations!.en).toBeDefined();
-		expect(bg.translations!.en.text).toBe("Background");
+		const transEn = bg.translations!.find((t) => t.language === "en");
+		expect(transEn).toBeDefined();
+		expect(transEn!.text).toBe("Background");
 
-		expect(bg.translations!["en-US"]).toBeDefined();
-		expect(bg.translations!["en-US"].text).toBe("With background");
+		const transEnUS = bg.translations!.find((t) => t.language === "en-US");
+		expect(transEnUS).toBeDefined();
+		expect(transEnUS!.text).toBe("With background");
 	});
 
 	test("Lines: 应当解析所有歌词行", () => {
@@ -330,14 +333,13 @@ describe("TTML Integration Test", () => {
 		const l2 = result.lines.find((l) => l.id === "L2")!;
 
 		expect(l2.translations).toBeDefined();
-		expect(l2.translations!["en-US"].text).toBe(
-			"This is the second line (Vocalist B)",
-		);
-		expect(l2.translations!["zh-Hans-CN"].text).toBe(
-			"这是第二行歌词 (演唱者B)",
-		);
+		const transEn = l2.translations!.find((t) => t.language === "en-US")!;
+		const transZh = l2.translations!.find((t) => t.language === "zh-Hans-CN")!;
 
-		const roman = l2.romanizations!["ja-Latn"];
+		expect(transEn.text).toBe("This is the second line (Vocalist B)");
+		expect(transZh.text).toBe("这是第二行歌词 (演唱者B)");
+
+		const roman = l2.romanizations!.find((r) => r.language === "ja-Latn")!;
 		expect(roman).toBeDefined();
 		expect(roman.words).toBeArray();
 		expect(roman.words).toHaveLength(3);
@@ -345,7 +347,7 @@ describe("TTML Integration Test", () => {
 
 	test("L2: 应当正确解析音译的逐字时间", () => {
 		const l2 = result.lines.find((l) => l.id === "L2")!;
-		const roman = l2.romanizations!["ja-Latn"];
+		const roman = l2.romanizations!.find((r) => r.language === "ja-Latn")!;
 
 		expect(roman.words![0].text).toBe("Futatsume");
 		expect(roman.words![0].startTime).toBe(15000);
@@ -396,7 +398,10 @@ describe("TTML Integration Test", () => {
 		const l3 = result.lines.find((l) => l.id === "L3")!;
 		const bg = l3.backgroundVocals![0]!;
 
-		const roman = bg.romanizations!["ja-Latn"];
+		const roman = bg.romanizations!.find(
+			(r) => r.language === "ja-Latn" && r.words && r.words.length > 0,
+		)!;
+
 		expect(roman).toBeDefined();
 		expect(roman.words).toBeDefined();
 		expect(roman.words).toHaveLength(1);
@@ -406,18 +411,40 @@ describe("TTML Integration Test", () => {
 		expect(roman.words![0].endTime).toBe(23800);
 	});
 
+	test("L3: 应当同时保留内嵌的逐行音译(Body)和Sidecar的逐字音译(Head)", () => {
+		const l3 = result.lines.find((l) => l.id === "L3")!;
+		const bg = l3.backgroundVocals![0]!;
+
+		const jaRomans = bg.romanizations!.filter((r) => r.language === "ja-Latn");
+
+		expect(jaRomans.length).toBeGreaterThanOrEqual(2);
+
+		const inlineRoman = jaRomans.find((r) => !r.words || r.words.length === 0);
+		expect(inlineRoman).toBeDefined();
+		expect(inlineRoman!.text).toBe("haikei");
+
+		const sidecarRoman = jaRomans.find((r) => r.words && r.words.length > 0);
+		expect(sidecarRoman).toBeDefined();
+		expect(sidecarRoman!.words).toHaveLength(1);
+		expect(sidecarRoman!.words![0].text).toBe("haikei");
+		expect(sidecarRoman!.words![0].startTime).toBe(22500);
+		expect(sidecarRoman!.words![0].endTime).toBe(23800);
+	});
+
 	test("L3: 应当解析翻译中的背景角色标记", () => {
 		const l3 = result.lines.find((l) => l.id === "L3")!;
 
 		expect(l3.translations).toBeDefined();
-		expect(l3.translations!["en-US"].text).toContain("This is the chorus line");
+		const transEn = l3.translations!.find((t) => t.language === "en-US")!;
+		expect(transEn.text).toContain("This is the chorus line");
 
-		expect(l3.translations!["zh-Hans-CN"].text).toContain("这是合唱部分");
+		const transZh = l3.translations!.find((t) => t.language === "zh-Hans-CN")!;
+		expect(transZh.text).toContain("这是合唱部分");
 	});
 
 	test("L3: 翻译对象本身应当包含结构化的背景人声数据", () => {
 		const l3 = result.lines.find((l) => l.id === "L3")!;
-		const translation = l3.translations!["en-US"];
+		const translation = l3.translations!.find((t) => t.language === "en-US")!;
 
 		expect(translation.backgroundVocals).toBeArray();
 		expect(translation.backgroundVocals).toHaveLength(1);
@@ -446,20 +473,18 @@ describe("TTML Integration Test", () => {
 
 	test("Romanization: 应当解析音译的合并文本", () => {
 		const l1 = result.lines.find((l) => l.id === "L1")!;
-		const roman = l1.romanizations!["ja-Latn"];
+		const roman = l1.romanizations!.find((r) => r.language === "ja-Latn")!;
 
 		expect(roman.text).toBe("Kore wa tesuto");
 	});
 
 	test("Translation: 应当解析翻译的合并文本", () => {
 		const l1 = result.lines.find((l) => l.id === "L1")!;
+		const transEn = l1.translations!.find((t) => t.language === "en-US")!;
+		const transZh = l1.translations!.find((t) => t.language === "zh-Hans-CN")!;
 
-		expect(l1.translations!["en-US"].text).toBe(
-			"This is the first line (Vocalist A)",
-		);
-		expect(l1.translations!["zh-Hans-CN"].text).toBe(
-			"这是第一行歌词 (演唱者A)",
-		);
+		expect(transEn.text).toBe("This is the first line (Vocalist A)");
+		expect(transZh.text).toBe("这是第一行歌词 (演唱者A)");
 	});
 
 	test("Edge Cases: 应当验证所有时间都是有效数字", () => {

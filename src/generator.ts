@@ -94,20 +94,22 @@ export class TTMLGenerator {
 			};
 
 			if (amllLine.translatedLyric) {
-				lyricBase.translations = {
-					[opts.translationLanguage]: {
+				lyricBase.translations = [
+					{
+						language: opts.translationLanguage,
 						text: amllLine.translatedLyric,
 					},
-				};
+				];
 			}
 
 			if (amllLine.romanLyric || romanSyllables.length > 0) {
-				lyricBase.romanizations = {
-					[opts.romanizationLanguage]: {
+				lyricBase.romanizations = [
+					{
+						language: opts.romanizationLanguage,
 						text: amllLine.romanLyric || romanText,
 						words: romanSyllables.length > 0 ? romanSyllables : undefined,
 					},
-				};
+				];
 			}
 
 			if (amllLine.isBG) {
@@ -312,26 +314,28 @@ export class TTMLGenerator {
 		}
 
 		const translationsMap = new Map<
-			string,
+			string | undefined,
 			Array<{ id: string; content: TranslatedContent }>
 		>();
 		const romansMap = new Map<
-			string,
+			string | undefined,
 			Array<{ id: string; content: TranslatedContent }>
 		>();
 
 		for (const line of result.lines) {
 			if (line.translations) {
-				Object.entries(line.translations).forEach(([lang, content]) => {
+				line.translations.forEach((content) => {
 					if (this.shouldMoveToSidecar(content)) {
+						const lang = content.language;
 						if (!translationsMap.has(lang)) translationsMap.set(lang, []);
 						translationsMap.get(lang)?.push({ id: line.id, content });
 					}
 				});
 			}
 			if (line.romanizations) {
-				Object.entries(line.romanizations).forEach(([lang, content]) => {
+				line.romanizations.forEach((content) => {
 					if (this.shouldMoveToSidecar(content)) {
+						const lang = content.language;
 						if (!romansMap.has(lang)) romansMap.set(lang, []);
 						romansMap.get(lang)?.push({ id: line.id, content });
 					}
@@ -343,7 +347,9 @@ export class TTMLGenerator {
 			const container = this.doc.createElement(Elements.Translations);
 			for (const [lang, items] of translationsMap) {
 				const transEl = this.doc.createElement(Elements.Translation);
-				transEl.setAttribute(QualifiedAttributes.XmlLang, lang);
+				if (lang) {
+					transEl.setAttribute(QualifiedAttributes.XmlLang, lang);
+				}
 				items.forEach((item) => {
 					const textEl = this.doc.createElement(Elements.Text);
 					textEl.setAttribute(Attributes.For, item.id);
@@ -360,7 +366,9 @@ export class TTMLGenerator {
 			const container = this.doc.createElement(Elements.Transliterations);
 			for (const [lang, items] of romansMap) {
 				const transEl = this.doc.createElement(Elements.Transliteration);
-				transEl.setAttribute(QualifiedAttributes.XmlLang, lang);
+				if (lang) {
+					transEl.setAttribute(QualifiedAttributes.XmlLang, lang);
+				}
 				items.forEach((item) => {
 					const textEl = this.doc.createElement(Elements.Text);
 					textEl.setAttribute(Attributes.For, item.id);
@@ -473,7 +481,7 @@ export class TTMLGenerator {
 
 		if (this.isLyricBase(content)) {
 			if (content.translations) {
-				Object.entries(content.translations).forEach(([lang, trans]) => {
+				content.translations.forEach((trans) => {
 					if (!this.shouldMoveToSidecar(trans)) {
 						const span = this.doc.createElement(Elements.Span);
 						span.setAttributeNS(
@@ -481,7 +489,13 @@ export class TTMLGenerator {
 							QualifiedAttributes.TTMRole,
 							Values.RoleTranslation,
 						);
-						span.setAttributeNS(NS.XML, QualifiedAttributes.XmlLang, lang);
+						if (trans.language) {
+							span.setAttributeNS(
+								NS.XML,
+								QualifiedAttributes.XmlLang,
+								trans.language,
+							);
+						}
 						span.textContent = trans.text;
 						element.appendChild(span);
 					}
@@ -489,7 +503,7 @@ export class TTMLGenerator {
 			}
 
 			if (content.romanizations) {
-				Object.entries(content.romanizations).forEach(([lang, roman]) => {
+				content.romanizations.forEach((roman) => {
 					if (!this.shouldMoveToSidecar(roman)) {
 						const span = this.doc.createElement(Elements.Span);
 						span.setAttributeNS(
@@ -497,7 +511,13 @@ export class TTMLGenerator {
 							QualifiedAttributes.TTMRole,
 							Values.RoleRoman,
 						);
-						span.setAttributeNS(NS.XML, QualifiedAttributes.XmlLang, lang);
+						if (roman.language) {
+							span.setAttributeNS(
+								NS.XML,
+								QualifiedAttributes.XmlLang,
+								roman.language,
+							);
+						}
 						span.textContent = roman.text;
 						element.appendChild(span);
 					}

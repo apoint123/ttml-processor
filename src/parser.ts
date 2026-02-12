@@ -16,8 +16,8 @@ import type {
  */
 interface IExtensionSidecar {
 	[lineId: string]: {
-		translations?: Record<string, TranslatedContent>;
-		romanizations?: Record<string, TranslatedContent>;
+		translations?: TranslatedContent[];
+		romanizations?: TranslatedContent[];
 	};
 }
 
@@ -111,22 +111,16 @@ export class TTMLParser {
 			}
 
 			let transText = "";
-			if (source.translations) {
-				const keys = Object.keys(source.translations);
-				if (keys.length > 0) {
-					transText = source.translations[keys[0]].text;
-				}
+			if (source.translations && source.translations.length > 0) {
+				transText = source.translations[0].text;
 			}
 
 			let romanText = "";
 			let romanWords: Syllable[] | undefined;
-			if (source.romanizations) {
-				const keys = Object.keys(source.romanizations);
-				if (keys.length > 0) {
-					const val = source.romanizations[keys[0]];
-					romanText = val.text;
-					romanWords = val.words;
-				}
+			if (source.romanizations && source.romanizations.length > 0) {
+				const val = source.romanizations[0];
+				romanText = val.text;
+				romanWords = val.words;
 			}
 
 			const isDuet = agentId !== "v1";
@@ -334,7 +328,6 @@ export class TTMLParser {
 			for (let i = 0; i < items.length; i++) {
 				const item = items[i];
 				const lang = this.getAttr(item, NS.XML, Attributes.Lang);
-				if (!lang) continue;
 
 				const textNodes = item.getElementsByTagName(Elements.Text);
 				for (let j = 0; j < textNodes.length; j++) {
@@ -344,10 +337,12 @@ export class TTMLParser {
 
 					if (forId && parsedContent.text) {
 						if (!sidecar[forId]) sidecar[forId] = {};
-						if (!sidecar[forId][type]) sidecar[forId][type] = {};
+						if (!sidecar[forId][type]) sidecar[forId][type] = [];
 
-						sidecar[forId][type][lang] =
-							this.toTranslatedContent(parsedContent);
+						const content = this.toTranslatedContent(parsedContent);
+						content.language = lang || undefined;
+
+						sidecar[forId][type]?.push(content);
 					}
 				}
 			}
@@ -433,26 +428,37 @@ export class TTMLParser {
 
 	private mergeSidecar(
 		target: LyricBase,
-		source: Record<string, TranslatedContent>,
+		source: TranslatedContent[],
 		field: "translations" | "romanizations",
 	) {
 		if (!target[field]) {
-			target[field] = {};
+			target[field] = [];
 		}
 
-		Object.assign(target[field], source);
+		target[field]?.push(...source);
 
 		if (target.backgroundVocals && target.backgroundVocals.length > 0) {
-			for (const [lang, content] of Object.entries(source)) {
-				if (content.backgroundVocals && content.backgroundVocals.length > 0) {
-					content.backgroundVocals.forEach((bgSrc, index) => {
-						const bgTarget = target.backgroundVocals?.[index];
-						if (bgTarget) {
-							this.mergeSidecar(bgTarget, { [lang]: bgSrc }, field);
+			source.forEach((srcItem) => {
+				if (srcItem.backgroundVocals && srcItem.backgroundVocals.length > 0) {
+					srcItem.backgroundVocals.forEach((srcBg, index) => {
+						const targetBg = target.backgroundVocals?.[index];
+						if (targetBg) {
+							const bgContent: TranslatedContent = {
+								language: srcItem.language,
+								text: srcBg.text,
+								words: srcBg.words,
+								backgroundVocals: srcBg.backgroundVocals,
+							};
+
+							if (!targetBg[field]) {
+								targetBg[field] = [];
+							}
+
+							targetBg[field]?.push(bgContent);
 						}
 					});
 				}
-			}
+			});
 		}
 	}
 
@@ -561,16 +567,24 @@ export class TTMLParser {
 			} else if (role === Values.RoleTranslation) {
 				const lang = this.getAttr(el, NS.XML, Attributes.Lang);
 				const text = el.textContent?.trim();
-				if (lang && text) {
-					if (!result.translations) result.translations = {};
-					result.translations[lang] = { text };
+
+				if (text) {
+					if (!result.translations) result.translations = [];
+					result.translations.push({
+						text,
+						language: lang || undefined,
+					});
 				}
 			} else if (role === Values.RoleRoman) {
 				const lang = this.getAttr(el, NS.XML, Attributes.Lang);
 				const text = el.textContent?.trim();
-				if (lang && text) {
-					if (!result.romanizations) result.romanizations = {};
-					result.romanizations[lang] = { text };
+
+				if (text) {
+					if (!result.romanizations) result.romanizations = [];
+					result.romanizations.push({
+						text,
+						language: lang || undefined,
+					});
 				}
 			} else {
 				const wBegin =

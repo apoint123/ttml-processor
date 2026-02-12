@@ -47,6 +47,11 @@ export interface GeneratorOptions {
  */
 export interface TranslatedContent {
 	/**
+	 * 该内容的 BCP-47 语言代码
+	 */
+	language?: string | undefined;
+
+	/**
 	 * 完整文本
 	 */
 	text: string;
@@ -91,19 +96,13 @@ export interface LyricBase {
 
 	/**
 	 * 翻译内容
-	 *
-	 * Key: BCP-47 语言代码 (如 "zh-Hans", "en-US")
-	 * Value: 翻译文本
 	 */
-	translations?: Record<string, TranslatedContent> | undefined;
+	translations?: TranslatedContent[] | undefined;
 
 	/**
 	 * 音译内容
-	 *
-	 * Key: BCP-47 语言代码 (如 "ja-Latn")
-	 * Value: 音译文本
 	 */
-	romanizations?: Record<string, TranslatedContent> | undefined;
+	romanizations?: TranslatedContent[] | undefined;
 
 	/**
 	 * 背景人声内容
