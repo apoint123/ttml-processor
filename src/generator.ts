@@ -496,7 +496,7 @@ export class TTMLGenerator {
 								trans.language,
 							);
 						}
-						span.textContent = trans.text;
+						this.appendContentToElement(span, trans);
 						element.appendChild(span);
 					}
 				});
@@ -518,7 +518,7 @@ export class TTMLGenerator {
 								roman.language,
 							);
 						}
-						span.textContent = roman.text;
+						this.appendContentToElement(span, roman);
 						element.appendChild(span);
 					}
 				});

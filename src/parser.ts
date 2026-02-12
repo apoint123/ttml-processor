@@ -446,15 +446,20 @@ export class TTMLParser {
 							const bgContent: TranslatedContent = {
 								language: srcItem.language,
 								text: srcBg.text,
-								words: srcBg.words,
-								backgroundVocals: srcBg.backgroundVocals,
 							};
+
+							if (srcBg.words && srcBg.words.length > 0) {
+								bgContent.words = srcBg.words;
+							}
+							if (srcBg.backgroundVocals && srcBg.backgroundVocals.length > 0) {
+								bgContent.backgroundVocals = srcBg.backgroundVocals;
+							}
 
 							if (!targetBg[field]) {
 								targetBg[field] = [];
 							}
 
-							targetBg[field]?.push(bgContent);
+							targetBg[field].push(bgContent);
 						}
 					});
 				}
@@ -566,14 +571,16 @@ export class TTMLParser {
 				result.backgroundVocals.push(bgVocal);
 			} else if (role === Values.RoleTranslation) {
 				const lang = this.getAttr(el, NS.XML, Attributes.Lang);
-				const text = el.textContent?.trim();
+				const parsed = this.parseCommonContent(el);
 
-				if (text) {
+				if (
+					parsed.text ||
+					(parsed.backgroundVocals && parsed.backgroundVocals.length > 0)
+				) {
 					if (!result.translations) result.translations = [];
-					result.translations.push({
-						text,
-						language: lang || undefined,
-					});
+					const content = this.toTranslatedContent(parsed);
+					content.language = lang || undefined;
+					result.translations.push(content);
 				}
 			} else if (role === Values.RoleRoman) {
 				const lang = this.getAttr(el, NS.XML, Attributes.Lang);

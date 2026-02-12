@@ -1,6 +1,7 @@
 /** biome-ignore-all lint/style/noNonNullAssertion: 为了测试 */
 import { beforeAll, describe, expect, test } from "bun:test";
-import { DOMParser } from "@xmldom/xmldom";
+import { DOMImplementation, DOMParser, XMLSerializer } from "@xmldom/xmldom";
+import { TTMLGenerator } from "@/generator";
 import { TTMLParser } from "@/parser";
 import type { AmllLyricLine, TTMLResult } from "@/types";
 
@@ -528,6 +529,22 @@ describe("TTML Integration Test", () => {
 				}
 			}
 		}
+	});
+
+	test("Round Trip: Parse -> Generate -> Parse 应当保持数据结构完全一致", () => {
+		const originalResult = parser.parse(XML);
+
+		const generator = new TTMLGenerator({
+			domImplementation: new DOMImplementation(),
+			xmlSerializer: new XMLSerializer(),
+			useSidecar: false,
+		});
+		const generatedXML = generator.generate(originalResult);
+
+		const roundTripParser = new TTMLParser({ domParser: new DOMParser() });
+		const roundTripResult = roundTripParser.parse(generatedXML);
+
+		expect(roundTripResult).toEqual(originalResult);
 	});
 });
 
