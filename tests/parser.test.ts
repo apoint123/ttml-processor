@@ -1,8 +1,8 @@
 /** biome-ignore-all lint/style/noNonNullAssertion: 为了测试 */
 import { beforeAll, describe, expect, test } from "bun:test";
 import { DOMParser } from "@xmldom/xmldom";
-import { TTMLParser } from "../src/parser";
-import type { AmllLyricLine, TTMLResult } from "../src/types";
+import { TTMLParser } from "@/parser";
+import type { AmllLyricLine, TTMLResult } from "@/types";
 
 const XML = `<?xml version="1.0" encoding="UTF-8"?>
 <tt xmlns="http://www.w3.org/ns/ttml"
