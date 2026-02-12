@@ -1,3 +1,4 @@
+import { Attributes, Elements, NS, Values } from "./constants";
 import type {
 	AmllLyricLine,
 	AmllLyricWord,
@@ -9,67 +10,6 @@ import type {
 	TTMLParserOptions,
 	TTMLResult,
 } from "./types";
-
-const NS = {
-	TT: "http://www.w3.org/ns/ttml",
-	TTM: "http://www.w3.org/ns/ttml#metadata",
-	ITUNES: "http://itunes.apple.com/lyric-ttml-extensions",
-	AMLL: "http://www.example.com/ns/amll",
-	XML: "http://www.w3.org/XML/1998/namespace",
-} as const;
-
-const Elements = {
-	Head: "head",
-	Body: "body",
-	Div: "div",
-	P: "p",
-	Title: "title",
-	Name: "name",
-	Meta: "meta",
-	Metadata: "iTunesMetadata",
-	ITunesMetadataPrefix: "itunes:iTunesMetadata",
-	Songwriters: "songwriters",
-	Songwriter: "songwriter",
-	Translation: "translation",
-	Translations: "translations",
-	Transliteration: "transliteration",
-	Transliterations: "transliterations",
-	Text: "text",
-	ParserError: "parsererror",
-	Agent: "agent",
-} as const;
-
-const Attributes = {
-	Timing: "timing",
-	Id: "id",
-	Key: "key",
-	Value: "value",
-	Lang: "lang",
-	For: "for",
-	SongPart: "songPart",
-	SongPartKebab: "song-part",
-	Begin: "begin",
-	End: "end",
-	Role: "role",
-} as const;
-
-const Values = {
-	Word: "Word",
-	Line: "Line",
-	MusicName: "musicName",
-	Artists: "artists",
-	Album: "album",
-	ISRC: "isrc",
-	TTMLAuthorGithub: "ttmlAuthorGithub",
-	TTMLAuthorGithubLogin: "ttmlAuthorGithubLogin",
-	NCMMusicId: "ncmMusicId",
-	QQMusicId: "qqMusicId",
-	SpotifyId: "spotifyId",
-	AppleMusicId: "appleMusicId",
-	RoleBg: "x-bg",
-	RoleTranslation: "x-translation",
-	RoleRoman: "x-roman",
-} as const;
 
 /**
  * 临时的用于关联 Apple Music 样式的翻译和音译与主歌词行的容器
@@ -106,7 +46,7 @@ export class TTMLParser {
 			throw new Error("TTMLParser: Input must be a valid XML string.");
 		}
 
-		const doc = this.domParser.parseFromString(xmlStr, "application/xml");
+		const doc = this.domParser.parseFromString(xmlStr, Values.MimeXML);
 		const { metadata, sidecar } = this.parseHead(doc);
 
 		const parserError = doc.getElementsByTagName(Elements.ParserError)[0];
@@ -364,9 +304,7 @@ export class TTMLParser {
 		meta: TTMLMetadata,
 		sidecar: IExtensionSidecar,
 	) {
-		const iTunesMeta =
-			head.getElementsByTagName(Elements.Metadata)[0] ||
-			head.getElementsByTagName(Elements.ITunesMetadataPrefix)[0];
+		const iTunesMeta = head.getElementsByTagName(Elements.ITunesMetadata)[0];
 		if (!iTunesMeta) return;
 
 		const songwritersContainer = iTunesMeta.getElementsByTagName(

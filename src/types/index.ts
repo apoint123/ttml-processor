@@ -7,11 +7,39 @@ export interface TTMLParserOptions {
 	/**
 	 * 注入的 DOMParser 实例
 	 * - 浏览器环境: 可忽略，默认使用 window.DOMParser
-	 * - Node.js 环境: 必须传入 (例如: new (require('@xmldom/xmldom').DOMParser)())
+	 * - Node.js 环境: 必须传入 (例如: `new (require('@xmldom/xmldom').DOMParser)()`)
 	 */
 	domParser?: {
 		parseFromString(string: string, type: DOMParserSupportedType): Document;
 	};
+}
+
+/**
+ * 生成器配置选项
+ */
+export interface GeneratorOptions {
+	/**
+	 * 注入的 DOMImplementation 实例
+	 * - 浏览器: 可忽略，默认使用 document.implementation
+	 * - Node.js 环境: 必须传入 (例如: `new (require('@xmldom/xmldom').DOMImplementation)()`)
+	 */
+	domImplementation?: DOMImplementation;
+
+	/**
+	 * 注入的 XMLSerializer 实例
+	 * - 浏览器: 可忽略，默认使用 new XMLSerializer()
+	 * - Node.js 环境: 必须传入 (例如: `new (require('@xmldom/xmldom').XMLSerializer)()`)
+	 */
+	xmlSerializer?: XMLSerializer;
+
+	/**
+	 * 对于逐行翻译/音译，是否将其放入 Head (Apple Music 风格)
+	 *
+	 * 注意逐字翻译/音译将始终强制放入 Head，无论此值如何
+	 *
+	 * 默认为 false
+	 */
+	useSidecar?: boolean;
 }
 
 /**
@@ -78,7 +106,7 @@ export interface LyricBase {
 	romanizations?: Record<string, TranslatedContent> | undefined;
 
 	/**
-	 * 背景人生内容
+	 * 背景人声内容
 	 */
 	backgroundVocals?: LyricBase[] | undefined;
 }
@@ -99,14 +127,14 @@ export interface LyricLine extends LyricBase {
 	 *
 	 * 可用于在 metadata.agents 中查找具体名字
 	 */
-	agentId?: string;
+	agentId?: string | undefined;
 
 	/**
 	 * 歌曲结构组成
 	 *
 	 * 例如: "Verse", "Chorus", "Intro", "Outro"
 	 */
-	songPart?: string;
+	songPart?: string | undefined;
 }
 
 /**
@@ -131,7 +159,7 @@ export interface Syllable {
 	/**
 	 * 该音节后面是否应该跟着一个空格
 	 *
-	 * 注意必须根据此标志在歌词后面添加空格，text 中不会包含空格
+	 * 注意必须根据此标志在歌词后面添加空格，text 中不应包含空格
 	 */
 	endsWithSpace?: boolean;
 }

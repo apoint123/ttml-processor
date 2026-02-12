@@ -53,3 +53,12 @@ export interface AmllLyricLine {
 	 */
 	endTime: number;
 }
+
+export interface AmllImportOptions {
+	/** 歌词的主语言 (如 'ja') */
+	mainLanguage?: string;
+	/** 翻译的目标语言 (如 'zh-Hans') */
+	translationLanguage?: string;
+	/** 音译的目标语言 (如 'ja-Latn') */
+	romanizationLanguage?: string;
+}

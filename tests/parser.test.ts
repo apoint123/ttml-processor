@@ -62,7 +62,7 @@ const XML = `<?xml version="1.0" encoding="UTF-8"?>
                 </translations>
 
                 <transliterations>
-                    <transliteration xml:lang="ja-Latn" xml:scheme="hepburn">
+                    <transliteration xml:lang="ja-Latn">
                         <text for="L1">
                             <span begin="00:10.000" end="00:10.500">Ko</span>
                             <span begin="00:10.500" end="00:10.800">re </span>
