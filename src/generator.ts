@@ -8,6 +8,7 @@ import {
 import type {
 	AmllImportOptions,
 	AmllLyricLine,
+	AmllMetadata,
 	GeneratorOptions,
 	LyricBase,
 	LyricLine,
@@ -67,7 +68,7 @@ export class TTMLGenerator {
 
 	public static toTTMLResult(
 		amllLines: AmllLyricLine[],
-		metadata: TTMLMetadata,
+		amllMetadata: AmllMetadata[],
 		options: AmllImportOptions = {},
 	): TTMLResult {
 		const opts = {
@@ -77,6 +78,48 @@ export class TTMLGenerator {
 			duetAgentId: "v2",
 			...options,
 		};
+
+		const metadata: TTMLMetadata = {
+			agents: {
+				[opts.defaultAgentId]: { id: opts.defaultAgentId },
+				[opts.duetAgentId]: { id: opts.duetAgentId },
+			},
+		};
+
+		for (const entry of amllMetadata) {
+			const { key, value } = entry;
+			if (!value || value.length === 0) continue;
+
+			switch (key) {
+				case Values.MusicName:
+					metadata.title = value;
+					break;
+				case Values.Artists:
+					metadata.artist = value;
+					break;
+				case Values.Album:
+					metadata.album = value;
+					break;
+				case Values.ISRC:
+					metadata.isrc = value;
+					break;
+				case Values.TTMLAuthorGithub:
+					metadata.authorIds = value;
+					break;
+				case Values.TTMLAuthorGithubLogin:
+					metadata.authorNames = value;
+					break;
+				case Values.NCMMusicId:
+				case Values.QQMusicId:
+				case Values.SpotifyId:
+				case Values.AppleMusicId:
+					if (!metadata.platformIds) {
+						metadata.platformIds = {};
+					}
+
+					metadata.platformIds[key] = value;
+			}
+		}
 
 		const resultLines: LyricLine[] = [];
 		let currentMainLine: LyricLine | null = null;
@@ -235,7 +278,8 @@ export class TTMLGenerator {
 
 		const meta = result.metadata;
 
-		Object.entries(meta.agents).forEach(([id, name]) => {
+		Object.values(meta.agents).forEach((agent) => {
+			const { id, name } = agent;
 			const agentEl = this.doc.createElementNS(
 				NS.TTM,
 				QualifiedAttributes.TTMAgent,
@@ -245,13 +289,16 @@ export class TTMLGenerator {
 			agentEl.setAttribute(Attributes.Type, type);
 			agentEl.setAttribute(QualifiedAttributes.XmlId, id);
 
-			const nameEl = this.doc.createElementNS(
-				NS.TTM,
-				QualifiedAttributes.TTMName,
-			);
-			nameEl.setAttribute(Attributes.Type, Values.Full);
-			nameEl.textContent = name;
-			agentEl.appendChild(nameEl);
+			if (name) {
+				const nameEl = this.doc.createElementNS(
+					NS.TTM,
+					QualifiedAttributes.TTMName,
+				);
+				nameEl.setAttribute(Attributes.Type, Values.Full);
+				nameEl.textContent = name;
+				agentEl.appendChild(nameEl);
+			}
+
 			metadata.appendChild(agentEl);
 		});
 
@@ -284,11 +331,13 @@ export class TTMLGenerator {
 			addAmllMeta(Values.ISRC, v);
 		});
 
-		Object.entries(meta.platformIds).forEach(([key, values]) => {
-			values?.forEach((v) => {
-				addAmllMeta(key, v);
+		if (result.metadata.platformIds) {
+			Object.entries(result.metadata.platformIds).forEach(([key, values]) => {
+				values?.forEach((v) => {
+					addAmllMeta(key, v);
+				});
 			});
-		});
+		}
 
 		this.buildITunesMetadata(metadata, result);
 

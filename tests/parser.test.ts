@@ -138,10 +138,10 @@ describe("TTML Integration Test", () => {
 	});
 
 	test("Metadata: 应当解析平台 IDs", () => {
-		expect(result.metadata.platformIds.ncmMusicId).toContain("123456789");
-		expect(result.metadata.platformIds.qqMusicId).toContain("987654321");
-		expect(result.metadata.platformIds.spotifyId).toContain("abc123xyz");
-		expect(result.metadata.platformIds.appleMusicId).toContain("999888777");
+		expect(result.metadata.platformIds?.ncmMusicId).toContain("123456789");
+		expect(result.metadata.platformIds?.qqMusicId).toContain("987654321");
+		expect(result.metadata.platformIds?.spotifyId).toContain("abc123xyz");
+		expect(result.metadata.platformIds?.appleMusicId).toContain("999888777");
 	});
 
 	test("Metadata: 应当解析 Artists 列表", () => {
@@ -151,8 +151,8 @@ describe("TTML Integration Test", () => {
 	});
 
 	test("Metadata: 应当建立 Agent 映射表", () => {
-		expect(result.metadata.agents.v1).toBe("Vocalist A (Taro)");
-		expect(result.metadata.agents.v1000).toBe("Chorus Group");
+		expect(result.metadata.agents.v1?.name).toBe("Vocalist A (Taro)");
+		expect(result.metadata.agents.v1000?.name).toBe("Chorus Group");
 	});
 
 	test("应当能正确解析 Songwriters 列表", () => {
@@ -467,9 +467,9 @@ describe("TTML Integration Test", () => {
 		expect(result.metadata.agents).toBeDefined();
 		expect(Object.keys(result.metadata.agents)).toHaveLength(3);
 
-		expect(result.metadata.agents.v1).toBe("Vocalist A (Taro)");
-		expect(result.metadata.agents.v2).toBe("Vocalist B (Hanako)");
-		expect(result.metadata.agents.v1000).toBe("Chorus Group");
+		expect(result.metadata.agents.v1?.name).toBe("Vocalist A (Taro)");
+		expect(result.metadata.agents.v2?.name).toBe("Vocalist B (Hanako)");
+		expect(result.metadata.agents.v1000?.name).toBe("Chorus Group");
 	});
 
 	test("Romanization: 应当解析音译的合并文本", () => {

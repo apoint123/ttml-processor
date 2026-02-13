@@ -164,6 +164,24 @@ export interface Syllable {
 }
 
 /**
+ * 演唱者信息结构
+ */
+export interface Agent {
+	/**
+	 * 演唱者的 ID
+	 *
+	 * 一般情况下，主唱的 ID 为 v1，对唱为 v2，合唱为 v1000。
+	 * 如果是 Apple Music 风格的 TTML 文件则可能会出现 v3，v4 等 ID
+	 */
+	id: string;
+
+	/**
+	 * 演唱者名称
+	 */
+	name?: string;
+}
+
+/**
  * 元数据中的各个平台 ID
  */
 export type PlatformId =
@@ -224,12 +242,12 @@ export interface TTMLMetadata {
 	/**
 	 * 演唱者映射表
 	 */
-	agents: Record<string, string>;
+	agents: Record<string, Agent>;
 
 	/**
 	 * 平台关联 ID
 	 */
-	platformIds: Partial<Record<PlatformId, string[]>>;
+	platformIds?: Partial<Record<PlatformId, string[]>>;
 
 	/**
 	 * 其他原始的自定义属性

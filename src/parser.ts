@@ -1,5 +1,6 @@
 import { Attributes, Elements, NS, Values } from "./constants";
 import type {
+	Agent,
 	AmllLyricLine,
 	AmllLyricWord,
 	LyricBase,
@@ -193,7 +194,6 @@ export class TTMLParser {
 			authorNames: [],
 			songwriters: [],
 			agents: {},
-			platformIds: {},
 			rawProperties: {},
 		};
 		const sidecar: IExtensionSidecar = {};
@@ -220,12 +220,23 @@ export class TTMLParser {
 		for (let i = 0; i < agents.length; i++) {
 			const agent = agents[i];
 			const id = this.getAttr(agent, NS.XML, Attributes.Id);
+
 			if (!id) continue;
 
 			const names = agent.getElementsByTagNameNS(NS.TTM, Elements.Name);
+
+			const agentObj: Agent = {
+				id: id,
+			};
+
 			if (names.length > 0 && names[0].textContent) {
-				meta.agents[id] = names[0].textContent.trim();
+				const rawName = names[0].textContent.trim();
+				if (rawName.length > 0) {
+					agentObj.name = rawName;
+				}
 			}
+
+			meta.agents[id] = agentObj;
 		}
 	}
 
@@ -262,9 +273,14 @@ export class TTMLParser {
 				case Values.QQMusicId:
 				case Values.SpotifyId:
 				case Values.AppleMusicId:
+					if (!meta.platformIds) {
+						meta.platformIds = {};
+					}
+
 					if (!meta.platformIds[key]) {
 						meta.platformIds[key] = [];
 					}
+
 					meta.platformIds[key].push(value);
 					break;
 				default:

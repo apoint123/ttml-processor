@@ -54,6 +54,11 @@ export interface AmllLyricLine {
 	endTime: number;
 }
 
+export interface AmllMetadata {
+	key: string;
+	value: string[];
+}
+
 export interface AmllImportOptions {
 	/** 歌词的主语言 (如 'ja') */
 	mainLanguage?: string;
