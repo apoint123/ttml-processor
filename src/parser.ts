@@ -24,6 +24,8 @@ interface IExtensionSidecar {
 
 export class TTMLParser {
 	private domParser: DOMParser;
+	private static readonly TIME_REGEX =
+		/^(?:(?:(\d+):)?(\d+):)?(\d+(?:\.\d+)?)$/;
 
 	constructor(options?: TTMLParserOptions) {
 		if (options?.domParser) {
@@ -215,10 +217,11 @@ export class TTMLParser {
 			meta.title?.push(titles[0].textContent.trim());
 		}
 
-		const agents = head.getElementsByTagNameNS(NS.TTM, Elements.Agent);
+		const agents = Array.from(
+			head.getElementsByTagNameNS(NS.TTM, Elements.Agent),
+		);
 
-		for (let i = 0; i < agents.length; i++) {
-			const agent = agents[i];
+		for (const agent of agents) {
 			const id = this.getAttr(agent, NS.XML, Attributes.Id);
 
 			if (!id) continue;
@@ -241,10 +244,18 @@ export class TTMLParser {
 	}
 
 	private parseAMLLMeta(head: Element, meta: TTMLMetadata) {
-		const metas = head.getElementsByTagNameNS(NS.AMLL, Elements.Meta);
+		const metas = Array.from(
+			head.getElementsByTagNameNS(NS.AMLL, Elements.Meta),
+		);
 
-		for (let i = 0; i < metas.length; i++) {
-			const el = metas[i];
+		const validMetas = metas.filter((el) => {
+			return (
+				this.getAttr(el, NS.AMLL, Attributes.Key) &&
+				this.getAttr(el, NS.AMLL, Attributes.Value)
+			);
+		});
+
+		for (const el of validMetas) {
 			const key = this.getAttr(el, NS.AMLL, Attributes.Key);
 			const value = this.getAttr(el, NS.AMLL, Attributes.Value);
 
@@ -321,11 +332,11 @@ export class TTMLParser {
 			Elements.Songwriters,
 		)[0];
 		if (songwritersContainer) {
-			const writers = songwritersContainer.getElementsByTagName(
-				Elements.Songwriter,
+			const writers = Array.from(
+				songwritersContainer.getElementsByTagName(Elements.Songwriter),
 			);
-			for (let i = 0; i < writers.length; i++) {
-				const name = writers[i].textContent?.trim();
+			for (const writer of writers) {
+				const name = writer.textContent?.trim();
 				if (name) {
 					meta.songwriters?.push(name);
 				}
@@ -340,14 +351,12 @@ export class TTMLParser {
 			const container = iTunesMeta.getElementsByTagName(containerTagName)[0];
 			if (!container) return;
 
-			const items = container.getElementsByTagName(itemTagName);
-			for (let i = 0; i < items.length; i++) {
-				const item = items[i];
+			const items = Array.from(container.getElementsByTagName(itemTagName));
+			for (const item of items) {
 				const lang = this.getAttr(item, NS.XML, Attributes.Lang);
 
-				const textNodes = item.getElementsByTagName(Elements.Text);
-				for (let j = 0; j < textNodes.length; j++) {
-					const textNode = textNodes[j];
+				const textNodes = Array.from(item.getElementsByTagName(Elements.Text));
+				for (const textNode of textNodes) {
 					const forId = textNode.getAttribute(Attributes.For);
 					const parsedContent = this.parseCommonContent(textNode);
 
@@ -375,33 +384,39 @@ export class TTMLParser {
 	private parseTime(timeStr: string | null): number {
 		if (!timeStr) return 0;
 
-		timeStr = timeStr.trim();
+		const cleanStr = timeStr.trim();
+		if (cleanStr.length === 0) return 0;
 
-		if (timeStr.endsWith("s")) {
-			const seconds = parseFloat(timeStr.slice(0, -1));
+		if (cleanStr.endsWith("s")) {
+			const seconds = Number(cleanStr.slice(0, -1));
+			if (Number.isNaN(seconds)) {
+				return 0;
+			}
 			return Math.round(seconds * 1000);
 		}
 
-		const parts = timeStr.split(":");
-		let seconds = 0;
+		const match = cleanStr.match(TTMLParser.TIME_REGEX);
 
-		if (parts.length === 3) {
-			seconds += parseInt(parts[0], 10) * 3600;
-			seconds += parseInt(parts[1], 10) * 60;
-			seconds += parseFloat(parts[2]);
-		} else if (parts.length === 2) {
-			seconds += parseInt(parts[0], 10) * 60;
-			seconds += parseFloat(parts[1]);
-		} else if (parts.length === 1) {
-			seconds += parseFloat(parts[0]);
-		} else {
-			console.warn(
-				`TTMLParser: Unknown time format "${timeStr}", defaulting to 0.`,
-			);
-			return 0;
+		if (match) {
+			const secStr = match[3];
+			const minStr = match[2];
+			const hrStr = match[1];
+
+			const seconds = Number(secStr);
+			const minutes = minStr ? parseInt(minStr, 10) : 0;
+			const hours = hrStr ? parseInt(hrStr, 10) : 0;
+
+			if (
+				!Number.isNaN(seconds) &&
+				!Number.isNaN(minutes) &&
+				!Number.isNaN(hours)
+			) {
+				const totalSeconds = hours * 3600 + minutes * 60 + seconds;
+				return Math.round(totalSeconds * 1000);
+			}
 		}
-
-		return Math.round(seconds * 1000);
+		1;
+		return 0;
 	}
 
 	private parseBody(
@@ -535,134 +550,171 @@ export class TTMLParser {
 			backgroundVocals: undefined,
 		};
 
-		const childNodes = Array.from(element.childNodes);
-		let fullText = "";
-		const words: Syllable[] = [];
+		const context = { fullText: "", words: [] as Syllable[] };
 
+		const childNodes = Array.from(element.childNodes);
 		for (const node of childNodes) {
 			if (node.nodeType === 3) {
-				const rawText = node.textContent || "";
-				const isFormatting = rawText.includes("\n");
-
-				if (isFormatting && rawText.trim().length === 0) {
-					continue;
-				}
-
-				const normalizedText = rawText.replace(/\s+/g, " ");
-
-				fullText += normalizedText;
-
-				if (
-					!isFormatting &&
-					normalizedText.length > 0 &&
-					normalizedText.trim().length === 0
-				) {
-					if (words.length > 0) {
-						words[words.length - 1].endsWithSpace = true;
-					}
-				}
-				continue;
-			}
-
-			if (node.nodeType !== 1) continue;
-			const el = node as Element;
-			const role = this.getAttr(el, NS.TTM, Attributes.Role);
-
-			if (role === Values.RoleBg) {
-				const bgVocal = this.parseCommonContent(el);
-
-				const stripParens = (str: string) => {
-					return str.replace(/^[(（]+/, "").replace(/[)）]+$/, "");
-				};
-
-				bgVocal.text = stripParens(bgVocal.text);
-
-				if (bgVocal.words) {
-					for (const word of bgVocal.words) {
-						word.text = stripParens(word.text);
-					}
-				}
-
-				if (!result.backgroundVocals) result.backgroundVocals = [];
-				result.backgroundVocals.push(bgVocal);
-			} else if (role === Values.RoleTranslation) {
-				const lang = this.getAttr(el, NS.XML, Attributes.Lang);
-				const parsed = this.parseCommonContent(el);
-
-				if (
-					parsed.text ||
-					(parsed.backgroundVocals && parsed.backgroundVocals.length > 0)
-				) {
-					if (!result.translations) result.translations = [];
-					const content = this.toTranslatedContent(parsed);
-					content.language = lang || undefined;
-					result.translations.push(content);
-				}
-			} else if (role === Values.RoleRoman) {
-				const lang = this.getAttr(el, NS.XML, Attributes.Lang);
-				const text = el.textContent?.trim();
-
-				if (text) {
-					if (!result.romanizations) result.romanizations = [];
-					result.romanizations.push({
-						text,
-						language: lang || undefined,
-					});
-				}
-			} else {
-				const wBegin =
-					this.getAttr(el, NS.XML, Attributes.Begin) ||
-					el.getAttribute(Attributes.Begin);
-				const wEnd =
-					this.getAttr(el, NS.XML, Attributes.End) ||
-					el.getAttribute(Attributes.End);
-
-				const rawWText = el.textContent || "";
-				const normalizedWText = rawWText.replace(/\s+/g, " ");
-
-				fullText += normalizedWText;
-
-				if (wBegin && wEnd) {
-					const isFormatting = rawWText.includes("\n");
-
-					let startsWithSpace = false;
-					let endsWithSpace = false;
-
-					if (!isFormatting) {
-						startsWithSpace = normalizedWText.startsWith(" ");
-						endsWithSpace = normalizedWText.endsWith(" ");
-					}
-
-					const cleanText = normalizedWText.trim();
-
-					if (startsWithSpace && words.length > 0) {
-						words[words.length - 1].endsWithSpace = true;
-					}
-
-					if (cleanText.length > 0) {
-						words.push({
-							text: cleanText,
-							startTime: this.parseTime(wBegin),
-							endTime: this.parseTime(wEnd),
-							endsWithSpace: endsWithSpace,
-						});
-					}
-				}
+				this.processTextNode(node, context);
+			} else if (node.nodeType === 1) {
+				this.processElementNode(node as Element, result, context);
 			}
 		}
 
-		result.text = fullText.trim().replace(/\s+/g, " ");
+		this.finalizeLyricBase(result, context);
 
-		if (words.length > 0) {
-			words[0].text = words[0].text.trimStart();
-			const lastWord = words[words.length - 1];
+		return result;
+	}
+
+	private processElementNode(
+		el: Element,
+		result: LyricBase,
+		context: { fullText: string; words: Syllable[] },
+	) {
+		const role = this.getAttr(el, NS.TTM, Attributes.Role);
+
+		switch (role) {
+			case Values.RoleBg:
+				this.parseBackgroundVocal(el, result);
+				break;
+			case Values.RoleTranslation:
+				this.parseTranslation(el, result);
+				break;
+			case Values.RoleRoman:
+				this.parseRomanization(el, result);
+				break;
+			default:
+				this.parseWordElement(el, context);
+				break;
+		}
+	}
+
+	private parseBackgroundVocal(el: Element, result: LyricBase) {
+		const bgVocal = this.parseCommonContent(el);
+
+		const stripParens = (str: string) =>
+			str.replace(/^[(（]+/, "").replace(/[)）]+$/, "");
+
+		bgVocal.text = stripParens(bgVocal.text);
+		if (bgVocal.words) {
+			bgVocal.words.forEach((word) => {
+				word.text = stripParens(word.text);
+			});
+		}
+
+		if (!result.backgroundVocals) result.backgroundVocals = [];
+		result.backgroundVocals.push(bgVocal);
+	}
+
+	private parseTranslation(el: Element, result: LyricBase) {
+		const lang = this.getAttr(el, NS.XML, Attributes.Lang);
+		const parsed = this.parseCommonContent(el);
+
+		if (
+			parsed.text ||
+			(parsed.backgroundVocals && parsed.backgroundVocals.length > 0)
+		) {
+			if (!result.translations) result.translations = [];
+			const content = this.toTranslatedContent(parsed);
+			content.language = lang || undefined;
+			result.translations.push(content);
+		}
+	}
+
+	private parseRomanization(el: Element, result: LyricBase) {
+		const lang = this.getAttr(el, NS.XML, Attributes.Lang);
+		const text = el.textContent?.trim();
+
+		if (text) {
+			if (!result.romanizations) result.romanizations = [];
+			result.romanizations.push({
+				text,
+				language: lang || undefined,
+			});
+		}
+	}
+
+	private processTextNode(
+		node: Node,
+		context: { fullText: string; words: Syllable[] },
+	) {
+		const rawText = node.textContent || "";
+		const isFormatting = rawText.includes("\n");
+
+		if (isFormatting && rawText.trim().length === 0) return;
+
+		const normalizedText = rawText.replace(/\s+/g, " ");
+		context.fullText += normalizedText;
+
+		if (
+			!isFormatting &&
+			normalizedText.length > 0 &&
+			normalizedText.trim().length === 0
+		) {
+			if (context.words.length > 0) {
+				context.words[context.words.length - 1].endsWithSpace = true;
+			}
+		}
+	}
+
+	private parseWordElement(
+		el: Element,
+		context: { fullText: string; words: Syllable[] },
+	) {
+		const wBegin =
+			this.getAttr(el, NS.XML, Attributes.Begin) ||
+			el.getAttribute(Attributes.Begin);
+		const wEnd =
+			this.getAttr(el, NS.XML, Attributes.End) ||
+			el.getAttribute(Attributes.End);
+
+		const rawWText = el.textContent || "";
+		const normalizedWText = rawWText.replace(/\s+/g, " ");
+
+		context.fullText += normalizedWText;
+
+		if (wBegin && wEnd) {
+			const isFormatting = rawWText.includes("\n");
+
+			let startsWithSpace = false;
+			let endsWithSpace = false;
+
+			if (!isFormatting) {
+				startsWithSpace = normalizedWText.startsWith(" ");
+				endsWithSpace = normalizedWText.endsWith(" ");
+			}
+
+			const cleanText = normalizedWText.trim();
+
+			if (startsWithSpace && context.words.length > 0) {
+				context.words[context.words.length - 1].endsWithSpace = true;
+			}
+
+			if (cleanText.length > 0) {
+				context.words.push({
+					text: cleanText,
+					startTime: this.parseTime(wBegin),
+					endTime: this.parseTime(wEnd),
+					endsWithSpace: endsWithSpace,
+				});
+			}
+		}
+	}
+
+	private finalizeLyricBase(
+		result: LyricBase,
+		context: { fullText: string; words: Syllable[] },
+	) {
+		result.text = context.fullText.trim().replace(/\s+/g, " ");
+
+		if (context.words.length > 0) {
+			context.words[0].text = context.words[0].text.trimStart();
+			const lastWord = context.words[context.words.length - 1];
 			lastWord.text = lastWord.text.trimEnd();
 			lastWord.endsWithSpace = false;
 
-			result.words = words;
+			result.words = context.words;
 		}
-
-		return result;
 	}
 
 	private getAttr(
@@ -674,8 +726,8 @@ export class TTMLParser {
 		if (val) return val;
 
 		if (element.hasAttributes()) {
-			for (let i = 0; i < element.attributes.length; i++) {
-				const attr = element.attributes[i];
+			const attributes = Array.from(element.attributes);
+			for (const attr of attributes) {
 				const attrLocalName = attr.localName || attr.nodeName.split(":").pop();
 
 				if (attrLocalName === localName) {

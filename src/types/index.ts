@@ -49,7 +49,7 @@ export interface TranslatedContent {
 	/**
 	 * 该内容的 BCP-47 语言代码
 	 */
-	language?: string | undefined;
+	language?: string;
 
 	/**
 	 * 完整文本
@@ -59,12 +59,12 @@ export interface TranslatedContent {
 	/**
 	 * 逐字音节信息
 	 */
-	words?: Syllable[] | undefined;
+	words?: Syllable[];
 
 	/**
 	 * 嵌套的背景人声翻译/音译内容
 	 */
-	backgroundVocals?: TranslatedContent[] | undefined;
+	backgroundVocals?: TranslatedContent[];
 }
 
 /**
@@ -92,22 +92,22 @@ export interface LyricBase {
 	 *
 	 * 如果数组为空或未定义，一般就是逐行歌词
 	 */
-	words?: Syllable[] | undefined;
+	words?: Syllable[];
 
 	/**
 	 * 翻译内容
 	 */
-	translations?: TranslatedContent[] | undefined;
+	translations?: TranslatedContent[];
 
 	/**
 	 * 音译内容
 	 */
-	romanizations?: TranslatedContent[] | undefined;
+	romanizations?: TranslatedContent[];
 
 	/**
 	 * 背景人声内容
 	 */
-	backgroundVocals?: LyricBase[] | undefined;
+	backgroundVocals?: LyricBase[];
 }
 
 /**
@@ -126,14 +126,14 @@ export interface LyricLine extends LyricBase {
 	 *
 	 * 可用于在 metadata.agents 中查找具体名字
 	 */
-	agentId?: string | undefined;
+	agentId?: string;
 
 	/**
 	 * 歌曲结构组成
 	 *
 	 * 例如: "Verse", "Chorus", "Intro", "Outro"
 	 */
-	songPart?: string | undefined;
+	songPart?: string;
 }
 
 /**
@@ -197,12 +197,12 @@ export interface TTMLMetadata {
 	/**
 	 * 歌词主语言代码 (BCP-47)
 	 */
-	language?: string | undefined;
+	language?: string;
 
 	/**
 	 * 计时模式
 	 */
-	timingMode?: "Word" | "Line" | undefined;
+	timingMode?: "Word" | "Line";
 
 	/**
 	 * 歌曲创作者列表
@@ -212,32 +212,32 @@ export interface TTMLMetadata {
 	/**
 	 * 歌曲标题列表
 	 */
-	title?: string[] | undefined;
+	title?: string[];
 
 	/**
 	 * 艺术家名称列表
 	 */
-	artist?: string[] | undefined;
+	artist?: string[];
 
 	/**
 	 * 专辑名称列表
 	 */
-	album?: string[] | undefined;
+	album?: string[];
 
 	/**
 	 * ISRC 号码列表
 	 */
-	isrc?: string[] | undefined;
+	isrc?: string[];
 
 	/**
 	 * 歌词作者 GitHub 数字 ID 列表
 	 */
-	authorIds?: string[] | undefined;
+	authorIds?: string[];
 
 	/**
 	 * 歌词作者 GitHub 用户名列表
 	 */
-	authorNames?: string[] | undefined;
+	authorNames?: string[];
 
 	/**
 	 * 演唱者映射表

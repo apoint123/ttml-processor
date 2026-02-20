@@ -32,7 +32,7 @@
 		"noUnusedParameters": true,
 		"noPropertyAccessFromIndexSignature": false,
 		"noUncheckedIndexedAccess": false,
-		"exactOptionalPropertyTypes": true,
+		"exactOptionalPropertyTypes": false,
 		"noImplicitReturns": true
 	}
 }
