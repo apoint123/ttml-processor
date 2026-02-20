@@ -1,15 +1,3 @@
 # ttml-processor
 
-To install dependencies:
-
-```bash
-bun install
-```
-
-To run:
-
-```bash
-bun run index.ts
-```
-
-This project was created using `bun init` in bun v1.3.6. [Bun](https://bun.com) is a fast all-in-one JavaScript runtime.
+适用于 [AMLL](https://github.com/amll-dev/applemusic-like-lyrics) 项目的 TTML 解析和生成器，自用
