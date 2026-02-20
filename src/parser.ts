@@ -164,12 +164,13 @@ export class TTMLParser {
 	) {
 		let i = 0;
 		let j = 0;
+		const TIME_TOLERANCE_MS = 30;
 
 		while (i < amllWords.length && j < romanWords.length) {
 			const main = amllWords[i];
 			const sub = romanWords[j];
 
-			if (Math.abs(main.startTime - sub.startTime) < 30) {
+			if (Math.abs(main.startTime - sub.startTime) < TIME_TOLERANCE_MS) {
 				main.romanWord = sub.text;
 				i++;
 				j++;
