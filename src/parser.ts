@@ -415,7 +415,6 @@ export class TTMLParser {
 				return Math.round(totalSeconds * 1000);
 			}
 		}
-		1;
 		return 0;
 	}
 
