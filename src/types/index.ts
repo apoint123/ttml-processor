@@ -170,8 +170,8 @@ export interface Agent {
 	/**
 	 * 演唱者的 ID
 	 *
-	 * 一般情况下，主唱的 ID 为 v1，对唱为 v2，合唱为 v1000。
-	 * 如果是 Apple Music 风格的 TTML 文件则可能会出现 v3，v4 等 ID
+	 * 如果是 AMLL 的 TTML，只有 v1 和 v2 分别指代非对唱和对唱。
+	 * 如果是 Apple Music 的 TTML，还会出现 v3，v4 等指代每个演唱者，以及 v1000 用于指代合唱。
 	 */
 	id: string;
 
