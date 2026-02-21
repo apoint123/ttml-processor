@@ -19,18 +19,18 @@ import type {
 } from "./types";
 
 export class TTMLGenerator {
-	private doc: Document;
+	private domImpl: DOMImplementation;
 	private options: GeneratorOptions;
 	private xmlSerializer: XMLSerializer;
+	private doc!: Document;
 
 	constructor(options: GeneratorOptions = {}) {
 		this.options = options;
 
-		let domImpl: DOMImplementation;
 		if (this.options.domImplementation) {
-			domImpl = this.options.domImplementation;
+			this.domImpl = this.options.domImplementation;
 		} else if (typeof document !== "undefined" && document.implementation) {
-			domImpl = document.implementation;
+			this.domImpl = document.implementation;
 		} else {
 			throw new Error(
 				"No DOMImplementation found. If you are running in Node.js, please inject via options (e.g., using @xmldom/xmldom in Node.js).",
@@ -46,11 +46,11 @@ export class TTMLGenerator {
 				"No XMLSerializer found. If you are running in Node.js, please inject via options (e.g., using @xmldom/xmldom in Node.js).",
 			);
 		}
-
-		this.doc = domImpl.createDocument(NS.TT, Elements.TT, null);
 	}
 
 	public generate(result: TTMLResult): string {
+		this.doc = this.domImpl.createDocument(NS.TT, Elements.TT, null);
+
 		const root = this.doc.documentElement;
 
 		this.setupRootAttributes(root, result);
