@@ -34,6 +34,7 @@ export class TTMLParser {
 	private domParser: DOMParser;
 	private static readonly TIME_REGEX =
 		/^(?:(?:(\d+):)?(\d+):)?(\d+(?:\.\d+)?)$/;
+	private static readonly SPACE_REGEX = /\s+/g;
 
 	constructor(options?: TTMLParserOptions) {
 		if (options?.domParser) {
@@ -588,7 +589,7 @@ export class TTMLParser {
 		const finalizedWords = this.finalizeWords(finalState.words);
 
 		return {
-			text: finalState.fullText.trim().replace(/\s+/g, " "),
+			text: finalState.fullText.trim().replace(TTMLParser.SPACE_REGEX, " "),
 			startTime: this.parseTime(beginStr),
 			endTime: this.parseTime(endStr),
 			words: finalizedWords.length > 0 ? finalizedWords : undefined,
@@ -613,7 +614,7 @@ export class TTMLParser {
 
 		if (isFormatting && rawText.trim().length === 0) return acc;
 
-		const normalizedText = rawText.replace(/\s+/g, " ");
+		const normalizedText = rawText.replace(TTMLParser.SPACE_REGEX, " ");
 
 		acc.fullText += normalizedText;
 
@@ -660,7 +661,7 @@ export class TTMLParser {
 			el.getAttribute(Attributes.End);
 
 		const rawWText = el.textContent || "";
-		const normalizedWText = rawWText.replace(/\s+/g, " ");
+		const normalizedWText = rawWText.replace(TTMLParser.SPACE_REGEX, " ");
 
 		acc.fullText += normalizedWText;
 
