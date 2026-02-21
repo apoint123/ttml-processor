@@ -32,9 +32,12 @@ interface IParsedState {
 
 export class TTMLParser {
 	private domParser: DOMParser;
+
 	private static readonly TIME_REGEX =
 		/^(?:(?:(\d+):)?(\d+):)?(\d+(?:\.\d+)?)$/;
-	private static readonly SPACE_REGEX = /\s+/g;
+	private static readonly LEADING_SPACE_REGEX = /^\s/;
+	private static readonly TRAILING_SPACE_REGEX = /\s$/;
+	private static readonly MULTI_SPACE_REGEX = /\s+/g;
 
 	constructor(options?: TTMLParserOptions) {
 		if (options?.domParser) {
@@ -589,7 +592,9 @@ export class TTMLParser {
 		const finalizedWords = this.finalizeWords(finalState.words);
 
 		return {
-			text: finalState.fullText.trim().replace(TTMLParser.SPACE_REGEX, " "),
+			text: finalState.fullText
+				.trim()
+				.replace(TTMLParser.MULTI_SPACE_REGEX, " "),
 			startTime: this.parseTime(beginStr),
 			endTime: this.parseTime(endStr),
 			words: finalizedWords.length > 0 ? finalizedWords : undefined,
@@ -614,7 +619,7 @@ export class TTMLParser {
 
 		if (isFormatting && rawText.trim().length === 0) return acc;
 
-		const normalizedText = rawText.replace(TTMLParser.SPACE_REGEX, " ");
+		const normalizedText = rawText.replace(TTMLParser.MULTI_SPACE_REGEX, " ");
 
 		acc.fullText += normalizedText;
 
@@ -661,7 +666,7 @@ export class TTMLParser {
 			el.getAttribute(Attributes.End);
 
 		const rawWText = el.textContent || "";
-		const normalizedWText = rawWText.replace(TTMLParser.SPACE_REGEX, " ");
+		const normalizedWText = rawWText.replace(TTMLParser.MULTI_SPACE_REGEX, " ");
 
 		acc.fullText += normalizedWText;
 
@@ -672,8 +677,8 @@ export class TTMLParser {
 			let endsWithSpace = false;
 
 			if (!isFormatting) {
-				startsWithSpace = normalizedWText.startsWith(" ");
-				endsWithSpace = normalizedWText.endsWith(" ");
+				startsWithSpace = TTMLParser.LEADING_SPACE_REGEX.test(normalizedWText);
+				endsWithSpace = TTMLParser.TRAILING_SPACE_REGEX.test(normalizedWText);
 			}
 
 			const cleanText = normalizedWText.trim();
