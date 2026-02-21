@@ -1,4 +1,4 @@
-import { Attributes, Elements, NS, Values } from "./constants";
+import { Attributes, Elements, NodeType, NS, Values } from "./constants";
 import type {
 	Agent,
 	AmllLyricLine,
@@ -20,6 +20,14 @@ interface IExtensionSidecar {
 		translations?: TranslatedContent[];
 		romanizations?: TranslatedContent[];
 	};
+}
+
+interface IParsedState {
+	fullText: string;
+	words: Syllable[];
+	translations: TranslatedContent[];
+	romanizations: { text: string; language?: string }[];
+	backgroundVocals: LyricBase[];
 }
 
 export class TTMLParser {
@@ -430,7 +438,7 @@ export class TTMLParser {
 		const childNodes = Array.from(body.childNodes);
 
 		for (const node of childNodes) {
-			if (node.nodeType !== 1) continue;
+			if (node.nodeType !== NodeType.ELEMENT_NODE) continue;
 			const el = node as Element;
 
 			const tagName = el.localName || el.tagName.toLowerCase().split(":").pop();
@@ -457,45 +465,57 @@ export class TTMLParser {
 		result.lines.sort((a, b) => a.startTime - b.startTime);
 	}
 
-	private mergeSidecar(
-		target: LyricBase,
+	private mergeSidecar<T extends LyricBase>(
+		target: T,
 		source: TranslatedContent[],
 		field: "translations" | "romanizations",
-	) {
-		if (!target[field]) {
-			target[field] = [];
+	): T {
+		const mergedField = [...(target[field] || []), ...source];
+
+		if (!target.backgroundVocals || target.backgroundVocals.length === 0) {
+			return {
+				...target,
+				[field]: mergedField,
+			};
 		}
 
-		target[field]?.push(...source);
+		const mergedBackgroundVocals = target.backgroundVocals.map(
+			(targetBg, index) => {
+				const bgContentsToMerge = source.flatMap((srcItem) => {
+					const srcBg = srcItem.backgroundVocals?.[index];
+					if (!srcBg) return [];
 
-		if (target.backgroundVocals && target.backgroundVocals.length > 0) {
-			source.forEach((srcItem) => {
-				if (srcItem.backgroundVocals && srcItem.backgroundVocals.length > 0) {
-					srcItem.backgroundVocals.forEach((srcBg, index) => {
-						const targetBg = target.backgroundVocals?.[index];
-						if (targetBg) {
-							const bgContent: TranslatedContent = {
-								language: srcItem.language,
-								text: srcBg.text,
-							};
+					const bgContent: TranslatedContent = {
+						language: srcItem.language,
+						text: srcBg.text,
+					};
 
-							if (srcBg.words && srcBg.words.length > 0) {
-								bgContent.words = srcBg.words;
-							}
-							if (srcBg.backgroundVocals && srcBg.backgroundVocals.length > 0) {
-								bgContent.backgroundVocals = srcBg.backgroundVocals;
-							}
+					if (srcBg.words && srcBg.words.length > 0) {
+						bgContent.words = srcBg.words;
+					}
+					if (srcBg.backgroundVocals && srcBg.backgroundVocals.length > 0) {
+						bgContent.backgroundVocals = srcBg.backgroundVocals;
+					}
 
-							if (!targetBg[field]) {
-								targetBg[field] = [];
-							}
+					return [bgContent];
+				});
 
-							targetBg[field].push(bgContent);
-						}
-					});
+				if (bgContentsToMerge.length === 0) {
+					return targetBg;
 				}
-			});
-		}
+
+				return {
+					...targetBg,
+					[field]: [...(targetBg[field] || []), ...bgContentsToMerge],
+				};
+			},
+		);
+
+		return {
+			...target,
+			[field]: mergedField,
+			backgroundVocals: mergedBackgroundVocals,
+		};
 	}
 
 	private processLineElement(
@@ -509,7 +529,7 @@ export class TTMLParser {
 
 		const baseContent = this.parseCommonContent(p);
 
-		const line: LyricLine = {
+		let line: LyricLine = {
 			id: id,
 			...baseContent,
 		};
@@ -522,10 +542,18 @@ export class TTMLParser {
 		const externalData = sidecar[id];
 		if (externalData) {
 			if (externalData.translations) {
-				this.mergeSidecar(line, externalData.translations, "translations");
+				line = this.mergeSidecar(
+					line,
+					externalData.translations,
+					"translations",
+				);
 			}
 			if (externalData.romanizations) {
-				this.mergeSidecar(line, externalData.romanizations, "romanizations");
+				line = this.mergeSidecar(
+					line,
+					externalData.romanizations,
+					"romanizations",
+				);
 			}
 		}
 
@@ -540,127 +568,90 @@ export class TTMLParser {
 			this.getAttr(element, NS.XML, Attributes.End) ||
 			element.getAttribute(Attributes.End);
 
-		const result: LyricBase = {
-			text: "",
-			startTime: this.parseTime(beginStr),
-			endTime: this.parseTime(endStr),
-			words: undefined,
-			translations: undefined,
-			romanizations: undefined,
-			backgroundVocals: undefined,
+		const initialState: IParsedState = {
+			fullText: "",
+			words: [],
+			translations: [],
+			romanizations: [],
+			backgroundVocals: [],
 		};
 
-		const context = { fullText: "", words: [] as Syllable[] };
-
-		const childNodes = Array.from(element.childNodes);
-		for (const node of childNodes) {
-			if (node.nodeType === 3) {
-				this.processTextNode(node, context);
-			} else if (node.nodeType === 1) {
-				this.processElementNode(node as Element, result, context);
+		const finalState = Array.from(element.childNodes).reduce((acc, node) => {
+			if (node.nodeType === NodeType.TEXT_NODE) {
+				return this.reduceTextNode(acc, node);
+			} else if (node.nodeType === NodeType.ELEMENT_NODE) {
+				return this.reduceElementNode(acc, node as Element);
 			}
-		}
+			return acc;
+		}, initialState);
 
-		this.finalizeLyricBase(result, context);
+		const finalizedWords = this.finalizeWords(finalState.words);
 
-		return result;
+		return {
+			text: finalState.fullText.trim().replace(/\s+/g, " "),
+			startTime: this.parseTime(beginStr),
+			endTime: this.parseTime(endStr),
+			words: finalizedWords.length > 0 ? finalizedWords : undefined,
+			translations:
+				finalState.translations.length > 0
+					? finalState.translations
+					: undefined,
+			romanizations:
+				finalState.romanizations.length > 0
+					? finalState.romanizations
+					: undefined,
+			backgroundVocals:
+				finalState.backgroundVocals.length > 0
+					? finalState.backgroundVocals
+					: undefined,
+		};
 	}
 
-	private processElementNode(
-		el: Element,
-		result: LyricBase,
-		context: { fullText: string; words: Syllable[] },
-	) {
-		const role = this.getAttr(el, NS.TTM, Attributes.Role);
-
-		switch (role) {
-			case Values.RoleBg:
-				this.parseBackgroundVocal(el, result);
-				break;
-			case Values.RoleTranslation:
-				this.parseTranslation(el, result);
-				break;
-			case Values.RoleRoman:
-				this.parseRomanization(el, result);
-				break;
-			default:
-				this.parseWordElement(el, context);
-				break;
-		}
-	}
-
-	private parseBackgroundVocal(el: Element, result: LyricBase) {
-		const bgVocal = this.parseCommonContent(el);
-
-		const stripParens = (str: string) =>
-			str.replace(/^[(（]+/, "").replace(/[)）]+$/, "");
-
-		bgVocal.text = stripParens(bgVocal.text);
-		if (bgVocal.words) {
-			bgVocal.words.forEach((word) => {
-				word.text = stripParens(word.text);
-			});
-		}
-
-		if (!result.backgroundVocals) result.backgroundVocals = [];
-		result.backgroundVocals.push(bgVocal);
-	}
-
-	private parseTranslation(el: Element, result: LyricBase) {
-		const lang = this.getAttr(el, NS.XML, Attributes.Lang);
-		const parsed = this.parseCommonContent(el);
-
-		if (
-			parsed.text ||
-			(parsed.backgroundVocals && parsed.backgroundVocals.length > 0)
-		) {
-			if (!result.translations) result.translations = [];
-			const content = this.toTranslatedContent(parsed);
-			content.language = lang || undefined;
-			result.translations.push(content);
-		}
-	}
-
-	private parseRomanization(el: Element, result: LyricBase) {
-		const lang = this.getAttr(el, NS.XML, Attributes.Lang);
-		const text = el.textContent?.trim();
-
-		if (text) {
-			if (!result.romanizations) result.romanizations = [];
-			result.romanizations.push({
-				text,
-				language: lang || undefined,
-			});
-		}
-	}
-
-	private processTextNode(
-		node: Node,
-		context: { fullText: string; words: Syllable[] },
-	) {
+	private reduceTextNode(acc: IParsedState, node: Node): IParsedState {
 		const rawText = node.textContent || "";
 		const isFormatting = rawText.includes("\n");
 
-		if (isFormatting && rawText.trim().length === 0) return;
+		if (isFormatting && rawText.trim().length === 0) return acc;
 
 		const normalizedText = rawText.replace(/\s+/g, " ");
-		context.fullText += normalizedText;
+
+		acc.fullText += normalizedText;
 
 		if (
 			!isFormatting &&
 			normalizedText.length > 0 &&
 			normalizedText.trim().length === 0
 		) {
-			if (context.words.length > 0) {
-				context.words[context.words.length - 1].endsWithSpace = true;
+			if (acc.words.length > 0) {
+				acc.words[acc.words.length - 1].endsWithSpace = true;
 			}
+		}
+		return acc;
+	}
+
+	private reduceElementNode(acc: IParsedState, el: Element): IParsedState {
+		const role = this.getAttr(el, NS.TTM, Attributes.Role);
+
+		switch (role) {
+			case Values.RoleBg:
+				acc.backgroundVocals.push(this.parseBackgroundVocal(el));
+				return acc;
+			case Values.RoleTranslation: {
+				const translation = this.parseTranslation(el);
+				if (translation) acc.translations.push(translation);
+				return acc;
+			}
+			case Values.RoleRoman: {
+				const romanization = this.parseRomanization(el);
+				if (romanization) acc.romanizations.push(romanization);
+				return acc;
+			}
+			default:
+				return this.reduceWordElement(acc, el);
 		}
 	}
 
-	private parseWordElement(
-		el: Element,
-		context: { fullText: string; words: Syllable[] },
-	) {
+	private reduceWordElement(acc: IParsedState, el: Element): IParsedState {
 		const wBegin =
 			this.getAttr(el, NS.XML, Attributes.Begin) ||
 			el.getAttribute(Attributes.Begin);
@@ -671,7 +662,7 @@ export class TTMLParser {
 		const rawWText = el.textContent || "";
 		const normalizedWText = rawWText.replace(/\s+/g, " ");
 
-		context.fullText += normalizedWText;
+		acc.fullText += normalizedWText;
 
 		if (wBegin && wEnd) {
 			const isFormatting = rawWText.includes("\n");
@@ -686,12 +677,12 @@ export class TTMLParser {
 
 			const cleanText = normalizedWText.trim();
 
-			if (startsWithSpace && context.words.length > 0) {
-				context.words[context.words.length - 1].endsWithSpace = true;
+			if (startsWithSpace && acc.words.length > 0) {
+				acc.words[acc.words.length - 1].endsWithSpace = true;
 			}
 
 			if (cleanText.length > 0) {
-				context.words.push({
+				acc.words.push({
 					text: cleanText,
 					startTime: this.parseTime(wBegin),
 					endTime: this.parseTime(wEnd),
@@ -699,22 +690,67 @@ export class TTMLParser {
 				});
 			}
 		}
+		return acc;
 	}
 
-	private finalizeLyricBase(
-		result: LyricBase,
-		context: { fullText: string; words: Syllable[] },
-	) {
-		result.text = context.fullText.trim().replace(/\s+/g, " ");
+	private parseBackgroundVocal(el: Element): LyricBase {
+		const bgVocal = this.parseCommonContent(el);
 
-		if (context.words.length > 0) {
-			context.words[0].text = context.words[0].text.trimStart();
-			const lastWord = context.words[context.words.length - 1];
-			lastWord.text = lastWord.text.trimEnd();
-			lastWord.endsWithSpace = false;
+		const stripParens = (str: string) =>
+			str.replace(/^[(（]+/, "").replace(/[)）]+$/, "");
 
-			result.words = context.words;
+		return {
+			...bgVocal,
+			text: stripParens(bgVocal.text),
+			words: bgVocal.words?.map((word) => ({
+				...word,
+				text: stripParens(word.text),
+			})),
+		};
+	}
+
+	private parseTranslation(el: Element): TranslatedContent | null {
+		const lang = this.getAttr(el, NS.XML, Attributes.Lang);
+		const parsed = this.parseCommonContent(el);
+
+		if (
+			parsed.text ||
+			(parsed.backgroundVocals && parsed.backgroundVocals.length > 0)
+		) {
+			const content = this.toTranslatedContent(parsed);
+			if (lang) content.language = lang;
+			return content;
 		}
+		return null;
+	}
+
+	private parseRomanization(
+		el: Element,
+	): { text: string; language?: string } | null {
+		const lang = this.getAttr(el, NS.XML, Attributes.Lang);
+		const text = el.textContent?.trim();
+
+		if (text) {
+			return { text, language: lang || undefined };
+		}
+		return null;
+	}
+
+	private finalizeWords(words: Syllable[]): Syllable[] {
+		if (words.length === 0) return [];
+
+		const newWords = [...words];
+
+		newWords[0] = { ...newWords[0], text: newWords[0].text.trimStart() };
+
+		const lastIdx = newWords.length - 1;
+		newWords[lastIdx] = {
+			...newWords[lastIdx],
+			text: newWords[lastIdx].text.trimEnd(),
+			endsWithSpace: false,
+		};
+
+		return newWords;
 	}
 
 	private getAttr(
