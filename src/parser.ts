@@ -465,8 +465,6 @@ export class TTMLParser {
 				this.processLineElement(el, result.lines, sidecar);
 			}
 		}
-
-		result.lines.sort((a, b) => a.startTime - b.startTime);
 	}
 
 	private mergeSidecar<T extends LyricBase>(
@@ -591,12 +589,48 @@ export class TTMLParser {
 
 		const finalizedWords = this.finalizeWords(finalState.words);
 
+		let calculatedStartTime = this.parseTime(beginStr);
+		let calculatedEndTime = this.parseTime(endStr);
+
+		const allTimedElements = [
+			...finalizedWords,
+			...finalState.backgroundVocals,
+		];
+
+		if (allTimedElements.length > 0) {
+			const minChildStart = Math.min(
+				...allTimedElements.map((e) => e.startTime),
+			);
+			const maxChildEnd = Math.max(...allTimedElements.map((e) => e.endTime));
+
+			if (
+				calculatedStartTime === 0 ||
+				(minChildStart > 0 && minChildStart < calculatedStartTime)
+			) {
+				calculatedStartTime = minChildStart;
+			}
+
+			if (calculatedEndTime === 0 || maxChildEnd > calculatedEndTime) {
+				calculatedEndTime = maxChildEnd;
+			}
+		}
+
+		const cleanFullText = finalState.fullText
+			.trim()
+			.replace(TTMLParser.MULTI_SPACE_REGEX, " ");
+		if (finalizedWords.length === 0 && cleanFullText.length > 0) {
+			finalizedWords.push({
+				text: cleanFullText,
+				startTime: calculatedStartTime,
+				endTime: calculatedEndTime,
+				endsWithSpace: false,
+			});
+		}
+
 		return {
-			text: finalState.fullText
-				.trim()
-				.replace(TTMLParser.MULTI_SPACE_REGEX, " "),
-			startTime: this.parseTime(beginStr),
-			endTime: this.parseTime(endStr),
+			text: cleanFullText,
+			startTime: calculatedStartTime,
+			endTime: calculatedEndTime,
 			words: finalizedWords.length > 0 ? finalizedWords : undefined,
 			translations:
 				finalState.translations.length > 0
@@ -734,7 +768,8 @@ export class TTMLParser {
 		el: Element,
 	): { text: string; language?: string } | null {
 		const lang = this.getAttr(el, NS.XML, Attributes.Lang);
-		const text = el.textContent?.trim();
+		const rawText = el.textContent || "";
+		const text = rawText.trim().replace(TTMLParser.MULTI_SPACE_REGEX, " ");
 
 		if (text) {
 			return { text, language: lang || undefined };
