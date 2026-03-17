@@ -338,60 +338,70 @@ export class TTMLParser {
 		meta: TTMLMetadata,
 		sidecar: IExtensionSidecar,
 	) {
-		const iTunesMeta = head.getElementsByTagName(Elements.ITunesMetadata)[0];
-		if (!iTunesMeta) return;
+		const iTunesMetas = Array.from(
+			head.getElementsByTagName(Elements.ITunesMetadata),
+		);
+		if (iTunesMetas.length === 0) return;
 
-		const songwritersContainer = iTunesMeta.getElementsByTagName(
-			Elements.Songwriters,
-		)[0];
-		if (songwritersContainer) {
-			const writers = Array.from(
-				songwritersContainer.getElementsByTagName(Elements.Songwriter),
-			);
-			for (const writer of writers) {
-				const name = writer.textContent?.trim();
-				if (name) {
-					meta.songwriters?.push(name);
-				}
-			}
-		}
-
-		const processEntries = (
-			containerTagName: string,
-			itemTagName: string,
-			type: "translations" | "romanizations",
-		) => {
-			const container = iTunesMeta.getElementsByTagName(containerTagName)[0];
-			if (!container) return;
-
-			const items = Array.from(container.getElementsByTagName(itemTagName));
-			for (const item of items) {
-				const lang = this.getAttr(item, NS.XML, Attributes.Lang);
-
-				const textNodes = Array.from(item.getElementsByTagName(Elements.Text));
-				for (const textNode of textNodes) {
-					const forId = textNode.getAttribute(Attributes.For);
-					const parsedContent = this.parseCommonContent(textNode);
-
-					if (forId && parsedContent.text) {
-						if (!sidecar[forId]) sidecar[forId] = {};
-						if (!sidecar[forId][type]) sidecar[forId][type] = [];
-
-						const content = this.toTranslatedContent(parsedContent);
-						content.language = lang || undefined;
-
-						sidecar[forId][type]?.push(content);
+		for (const iTunesMeta of iTunesMetas) {
+			const songwritersContainer = iTunesMeta.getElementsByTagName(
+				Elements.Songwriters,
+			)[0];
+			if (songwritersContainer) {
+				const writers = Array.from(
+					songwritersContainer.getElementsByTagName(Elements.Songwriter),
+				);
+				for (const writer of writers) {
+					const name = writer.textContent?.trim();
+					if (name) {
+						meta.songwriters?.push(name);
 					}
 				}
 			}
-		};
 
-		processEntries(Elements.Translations, Elements.Translation, "translations");
-		processEntries(
-			Elements.Transliterations,
-			Elements.Transliteration,
-			"romanizations",
-		);
+			const processEntries = (
+				containerTagName: string,
+				itemTagName: string,
+				type: "translations" | "romanizations",
+			) => {
+				const container = iTunesMeta.getElementsByTagName(containerTagName)[0];
+				if (!container) return;
+
+				const items = Array.from(container.getElementsByTagName(itemTagName));
+				for (const item of items) {
+					const lang = this.getAttr(item, NS.XML, Attributes.Lang);
+
+					const textNodes = Array.from(
+						item.getElementsByTagName(Elements.Text),
+					);
+					for (const textNode of textNodes) {
+						const forId = textNode.getAttribute(Attributes.For);
+						const parsedContent = this.parseCommonContent(textNode);
+
+						if (forId && parsedContent.text) {
+							if (!sidecar[forId]) sidecar[forId] = {};
+							if (!sidecar[forId][type]) sidecar[forId][type] = [];
+
+							const content = this.toTranslatedContent(parsedContent);
+							content.language = lang || undefined;
+
+							sidecar[forId][type]?.push(content);
+						}
+					}
+				}
+			};
+
+			processEntries(
+				Elements.Translations,
+				Elements.Translation,
+				"translations",
+			);
+			processEntries(
+				Elements.Transliterations,
+				Elements.Transliteration,
+				"romanizations",
+			);
+		}
 	}
 
 	private parseTime(timeStr: string | null): number {
