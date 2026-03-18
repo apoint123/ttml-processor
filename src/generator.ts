@@ -239,9 +239,9 @@ export class TTMLGenerator {
 	}
 
 	private setupRootAttributes(root: Element, result: TTMLResult) {
-		root.setAttributeNS(NS.XMLNS, QualifiedAttributes.XmlnsTtm, NS.TTM);
-		root.setAttributeNS(NS.XMLNS, QualifiedAttributes.XmlnsItunes, NS.ITUNES);
 		root.setAttributeNS(NS.XMLNS, QualifiedAttributes.XmlnsAmll, NS.AMLL);
+		root.setAttributeNS(NS.XMLNS, QualifiedAttributes.XmlnsItunes, NS.ITUNES);
+		root.setAttributeNS(NS.XMLNS, QualifiedAttributes.XmlnsTtm, NS.TTM);
 
 		if (result.metadata.language) {
 			root.setAttributeNS(
@@ -257,6 +257,8 @@ export class TTMLGenerator {
 				QualifiedAttributes.ITunesTiming,
 				result.metadata.timingMode,
 			);
+		} else {
+			root.setAttributeNS(NS.ITUNES, QualifiedAttributes.ITunesTiming, "Word");
 		}
 	}
 
@@ -279,12 +281,13 @@ export class TTMLGenerator {
 		const meta = result.metadata;
 
 		Object.values(meta.agents).forEach((agent) => {
-			const { id, name } = agent;
+			const { id, name, type: agentType } = agent;
 			const agentEl = this.doc.createElementNS(
 				NS.TTM,
 				QualifiedAttributes.TTMAgent,
 			);
-			const type = id === Values.AgentGroup ? Values.Group : Values.Person;
+			const type =
+				agentType || (id === Values.AgentGroup ? Values.Group : Values.Person);
 
 			agentEl.setAttribute(Attributes.Type, type);
 			agentEl.setAttribute(QualifiedAttributes.XmlId, id);
@@ -321,6 +324,15 @@ export class TTMLGenerator {
 		meta.album?.forEach((v) => {
 			addAmllMeta(Values.Album, v);
 		});
+
+		if (result.metadata.platformIds) {
+			Object.entries(result.metadata.platformIds).forEach(([key, values]) => {
+				values?.forEach((v) => {
+					addAmllMeta(key, v);
+				});
+			});
+		}
+
 		meta.authorIds?.forEach((v) => {
 			addAmllMeta(Values.TTMLAuthorGithub, v);
 		});
@@ -330,14 +342,6 @@ export class TTMLGenerator {
 		meta.isrc?.forEach((v) => {
 			addAmllMeta(Values.ISRC, v);
 		});
-
-		if (result.metadata.platformIds) {
-			Object.entries(result.metadata.platformIds).forEach(([key, values]) => {
-				values?.forEach((v) => {
-					addAmllMeta(key, v);
-				});
-			});
-		}
 
 		this.buildITunesMetadata(metadata, result);
 
@@ -607,10 +611,13 @@ export class TTMLGenerator {
 		const minutes = Math.floor(totalSeconds / 60);
 		const seconds = totalSeconds % 60;
 
-		const mm = minutes.toString().padStart(2, "0");
-		const ss = seconds.toString().padStart(2, "0");
 		const fff = milliseconds.toString().padStart(3, "0");
 
-		return `${mm}:${ss}.${fff}`;
+		if (minutes > 0) {
+			const ss = seconds.toString().padStart(2, "0");
+			return `${minutes}:${ss}.${fff}`;
+		} else {
+			return `${seconds}.${fff}`;
+		}
 	}
 }

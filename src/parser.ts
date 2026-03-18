@@ -239,11 +239,19 @@ export class TTMLParser {
 
 			if (!id) continue;
 
+			const type =
+				this.getAttr(agent, NS.TTM, Attributes.Type) ||
+				agent.getAttribute(Attributes.Type);
+
 			const names = agent.getElementsByTagNameNS(NS.TTM, Elements.Name);
 
 			const agentObj: Agent = {
 				id: id,
 			};
+
+			if (type) {
+				agentObj.type = type;
+			}
 
 			if (names.length > 0 && names[0].textContent) {
 				const rawName = names[0].textContent.trim();
@@ -628,7 +636,14 @@ export class TTMLParser {
 		const cleanFullText = finalState.fullText
 			.trim()
 			.replace(TTMLParser.MULTI_SPACE_REGEX, " ");
-		if (finalizedWords.length === 0 && cleanFullText.length > 0) {
+
+		const hasTimeAttrs = beginStr !== null || endStr !== null;
+
+		if (
+			finalizedWords.length === 0 &&
+			cleanFullText.length > 0 &&
+			hasTimeAttrs
+		) {
 			finalizedWords.push({
 				text: cleanFullText,
 				startTime: calculatedStartTime,

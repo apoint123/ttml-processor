@@ -179,6 +179,13 @@ export interface Agent {
 	 * 演唱者名称
 	 */
 	name?: string;
+
+	/**
+	 * 演唱者类型
+	 *
+	 * 通常为 "person", "group", "other"，也有可能是其他字符串
+	 */
+	type?: string;
 }
 
 /**

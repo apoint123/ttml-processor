@@ -1,7 +1,7 @@
 export const NS = {
 	TT: "http://www.w3.org/ns/ttml",
 	TTM: "http://www.w3.org/ns/ttml#metadata",
-	ITUNES: "http://itunes.apple.com/lyric-ttml-extensions",
+	ITUNES: "http://music.apple.com/lyric-ttml-internal",
 	AMLL: "http://www.example.com/ns/amll",
 	XML: "http://www.w3.org/XML/1998/namespace",
 	XMLNS: "http://www.w3.org/2000/xmlns/",
