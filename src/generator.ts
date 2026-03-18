@@ -23,6 +23,7 @@ export class TTMLGenerator {
 	private options: GeneratorOptions;
 	private xmlSerializer: XMLSerializer;
 	private doc!: Document;
+	private timingMode: "Word" | "Line" = "Line";
 
 	constructor(options: GeneratorOptions = {}) {
 		this.options = options;
@@ -50,6 +51,7 @@ export class TTMLGenerator {
 
 	public generate(result: TTMLResult): string {
 		this.doc = this.domImpl.createDocument(NS.TT, Elements.TT, null);
+		this.timingMode = result.metadata.timingMode || "Line";
 
 		const root = this.doc.documentElement;
 
@@ -268,9 +270,14 @@ export class TTMLGenerator {
 		return "startTime" in content;
 	}
 
+	private isWordByWord(words?: Syllable[]): boolean {
+		if (!words || words.length === 0) return false;
+		if (this.timingMode === "Word") return true;
+		return true;
+	}
+
 	private shouldMoveToSidecar(content: TranslatedContent): boolean {
-		const isWordByWord = content.words && content.words.length > 0;
-		if (isWordByWord) return true;
+		if (content.words && content.words.length > 0) return true;
 		return !!this.options.useSidecar;
 	}
 
@@ -305,6 +312,8 @@ export class TTMLGenerator {
 			metadata.appendChild(agentEl);
 		});
 
+		this.buildITunesMetadata(metadata, result);
+
 		const addAmllMeta = (key: string, value: string) => {
 			const el = this.doc.createElementNS(
 				NS.AMLL,
@@ -333,17 +342,24 @@ export class TTMLGenerator {
 			});
 		}
 
+		meta.isrc?.forEach((v) => {
+			addAmllMeta(Values.ISRC, v);
+		});
+
 		meta.authorIds?.forEach((v) => {
 			addAmllMeta(Values.TTMLAuthorGithub, v);
 		});
 		meta.authorNames?.forEach((v) => {
 			addAmllMeta(Values.TTMLAuthorGithubLogin, v);
 		});
-		meta.isrc?.forEach((v) => {
-			addAmllMeta(Values.ISRC, v);
-		});
 
-		this.buildITunesMetadata(metadata, result);
+		if (meta.rawProperties) {
+			Object.entries(meta.rawProperties).forEach(([key, values]) => {
+				values?.forEach((v) => {
+					addAmllMeta(key, v);
+				});
+			});
+		}
 
 		head.appendChild(metadata);
 		return head;
@@ -441,12 +457,10 @@ export class TTMLGenerator {
 
 	private buildBody(result: TTMLResult): Element {
 		const body = this.doc.createElement(Elements.Body);
-		const sortedLines = [...result.lines].sort(
-			(a, b) => a.startTime - b.startTime,
-		);
+		const lines = result.lines;
 
 		const lastTime =
-			sortedLines.length > 0 ? sortedLines[sortedLines.length - 1].endTime : 0;
+			lines.length > 0 ? Math.max(...lines.map((l) => l.endTime)) : 0;
 		body.setAttribute(Attributes.Dur, this.formatTime(lastTime));
 
 		let currentDiv: Element | null = null;
@@ -469,7 +483,7 @@ export class TTMLGenerator {
 			}
 		};
 
-		for (const line of sortedLines) {
+		for (const line of lines) {
 			if (line.songPart !== currentSongPart || !currentDiv) {
 				finalizeCurrentDiv();
 
@@ -510,9 +524,10 @@ export class TTMLGenerator {
 	private appendContentToElement(
 		element: Element,
 		content: LyricBase | TranslatedContent,
+		isBackground: boolean = false,
 	) {
-		if (content.words && content.words.length > 0) {
-			content.words.forEach((syllable) => {
+		if (this.isWordByWord(content.words) && content.words) {
+			content.words.forEach((syllable, index) => {
 				const span = this.doc.createElement(Elements.Span);
 				span.setAttribute(
 					Attributes.Begin,
@@ -520,7 +535,14 @@ export class TTMLGenerator {
 				);
 				span.setAttribute(Attributes.End, this.formatTime(syllable.endTime));
 
-				span.textContent = syllable.text;
+				let text = syllable.text;
+				if (isBackground) {
+					if (index === 0) text = `(${text}`;
+					// biome-ignore lint/style/noNonNullAssertion: 肯定有
+					if (index === content.words!.length - 1) text = `${text})`;
+				}
+
+				span.textContent = text;
 				element.appendChild(span);
 
 				if (syllable.endsWithSpace) {
@@ -529,7 +551,11 @@ export class TTMLGenerator {
 				}
 			});
 		} else {
-			element.textContent = content.text;
+			let text = content.text || "";
+			if (isBackground) {
+				text = `(${text})`;
+			}
+			element.textContent = text;
 		}
 
 		if (this.isLyricBase(content)) {
@@ -597,7 +623,7 @@ export class TTMLGenerator {
 					}
 				}
 
-				this.appendContentToElement(bgSpan, bg);
+				this.appendContentToElement(bgSpan, bg, true);
 				element.appendChild(bgSpan);
 			});
 		}

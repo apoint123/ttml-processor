@@ -5,6 +5,7 @@ import type {
 	AmllLyricWord,
 	LyricBase,
 	LyricLine,
+	PlatformId,
 	Syllable,
 	TranslatedContent,
 	TTMLMetadata,
@@ -91,7 +92,58 @@ export class TTMLParser {
 
 		this.parseBody(doc, result, sidecar);
 
+		result.metadata.timingMode = this.inferTimingMode(result.lines);
+
+		if (result.metadata.platformIds) {
+			result.metadata.platformIds = this.sortPlatformIds(
+				result.metadata.platformIds,
+			);
+		}
+
 		return result;
+	}
+
+	private inferTimingMode(lines: LyricLine[]): "Word" | "Line" {
+		for (const line of lines) {
+			if (line.words && line.words.length > 1) {
+				return "Word";
+			}
+			if (line.backgroundVocals) {
+				for (const bg of line.backgroundVocals) {
+					if (bg.words && bg.words.length > 1) {
+						return "Word";
+					}
+				}
+			}
+		}
+		return "Line";
+	}
+
+	private sortPlatformIds(
+		platformIds: Partial<Record<PlatformId, string[]>>,
+	): Partial<Record<PlatformId, string[]>> {
+		const preferredOrder: PlatformId[] = [
+			"ncmMusicId",
+			"qqMusicId",
+			"spotifyId",
+			"appleMusicId",
+		];
+
+		const orderedPlatformIds: Partial<Record<PlatformId, string[]>> = {};
+
+		for (const key of preferredOrder) {
+			if (platformIds[key]) {
+				orderedPlatformIds[key] = platformIds[key];
+			}
+		}
+
+		for (const key of Object.keys(platformIds) as PlatformId[]) {
+			if (!orderedPlatformIds[key]) {
+				orderedPlatformIds[key] = platformIds[key];
+			}
+		}
+
+		return orderedPlatformIds;
 	}
 
 	/**
@@ -220,8 +272,37 @@ export class TTMLParser {
 		this.parseTTMElements(head, resultMeta);
 		this.parseAMLLMeta(head, resultMeta);
 		this.parseiTunesExtensions(head, resultMeta, sidecar);
+		this.deduplicateMetadata(resultMeta);
 
 		return { metadata: resultMeta, sidecar };
+	}
+
+	private deduplicateMetadata(meta: TTMLMetadata) {
+		const dedupe = (arr?: string[]) => (arr ? Array.from(new Set(arr)) : []);
+
+		meta.title = dedupe(meta.title);
+		meta.artist = dedupe(meta.artist);
+		meta.album = dedupe(meta.album);
+		meta.isrc = dedupe(meta.isrc);
+		meta.authorIds = dedupe(meta.authorIds);
+		meta.authorNames = dedupe(meta.authorNames);
+		meta.songwriters = dedupe(meta.songwriters);
+
+		if (meta.platformIds) {
+			for (const key of Object.keys(meta.platformIds) as PlatformId[]) {
+				if (meta.platformIds[key]) {
+					meta.platformIds[key] = dedupe(meta.platformIds[key]);
+				}
+			}
+		}
+
+		if (meta.rawProperties) {
+			for (const key of Object.keys(meta.rawProperties)) {
+				if (meta.rawProperties[key]) {
+					meta.rawProperties[key] = dedupe(meta.rawProperties[key]);
+				}
+			}
+		}
 	}
 
 	private parseTTMElements(head: Element, meta: TTMLMetadata) {
@@ -278,7 +359,7 @@ export class TTMLParser {
 
 		for (const el of validMetas) {
 			const key = this.getAttr(el, NS.AMLL, Attributes.Key);
-			const value = this.getAttr(el, NS.AMLL, Attributes.Value);
+			const value = this.getAttr(el, NS.AMLL, Attributes.Value)?.trim();
 
 			if (!key || !value) continue;
 
@@ -317,7 +398,9 @@ export class TTMLParser {
 					break;
 				default:
 					if (!meta.rawProperties) meta.rawProperties = {};
-					meta.rawProperties[key] = value;
+					if (!meta.rawProperties[key]) meta.rawProperties[key] = [];
+
+					meta.rawProperties[key].push(value);
 					break;
 			}
 		}
@@ -325,11 +408,18 @@ export class TTMLParser {
 
 	private toTranslatedContent(base: LyricBase): TranslatedContent {
 		const content: TranslatedContent = {
-			text: base.text,
+			text: base.text.trim().replace(TTMLParser.MULTI_SPACE_REGEX, " "),
 		};
 
 		if (base.words && base.words.length > 0) {
-			content.words = base.words;
+			const isZeroFallback =
+				base.words.length === 1 &&
+				base.words[0].startTime === 0 &&
+				base.words[0].endTime === 0;
+
+			if (!isZeroFallback) {
+				content.words = base.words;
+			}
 		}
 
 		if (base.backgroundVocals && base.backgroundVocals.length > 0) {
@@ -607,8 +697,11 @@ export class TTMLParser {
 
 		const finalizedWords = this.finalizeWords(finalState.words);
 
-		let calculatedStartTime = this.parseTime(beginStr);
-		let calculatedEndTime = this.parseTime(endStr);
+		const originalStartTime = this.parseTime(beginStr);
+		const originalEndTime = this.parseTime(endStr);
+
+		let calculatedStartTime = originalStartTime;
+		let calculatedEndTime = originalEndTime;
 
 		const allTimedElements = [
 			...finalizedWords,
@@ -646,8 +739,9 @@ export class TTMLParser {
 		) {
 			finalizedWords.push({
 				text: cleanFullText,
-				startTime: calculatedStartTime,
-				endTime: calculatedEndTime,
+				startTime:
+					originalStartTime > 0 ? originalStartTime : calculatedStartTime,
+				endTime: originalEndTime > 0 ? originalEndTime : calculatedEndTime,
 				endsWithSpace: false,
 			});
 		}
@@ -764,13 +858,25 @@ export class TTMLParser {
 		const stripParens = (str: string) =>
 			str.replace(/^[(（]+/, "").replace(/[)）]+$/, "");
 
+		const newWords = bgVocal.words ? [...bgVocal.words] : undefined;
+
+		if (newWords && newWords.length > 0) {
+			newWords[0] = {
+				...newWords[0],
+				text: newWords[0].text.replace(/^[(（]+/, "").trimStart(),
+			};
+
+			const lastIdx = newWords.length - 1;
+			newWords[lastIdx] = {
+				...newWords[lastIdx],
+				text: newWords[lastIdx].text.replace(/[)）]+$/, "").trimEnd(),
+			};
+		}
+
 		return {
 			...bgVocal,
 			text: stripParens(bgVocal.text),
-			words: bgVocal.words?.map((word) => ({
-				...word,
-				text: stripParens(word.text),
-			})),
+			words: newWords,
 		};
 	}
 
@@ -783,6 +889,9 @@ export class TTMLParser {
 			(parsed.backgroundVocals && parsed.backgroundVocals.length > 0)
 		) {
 			const content = this.toTranslatedContent(parsed);
+
+			delete content.words;
+
 			if (lang) content.language = lang;
 			return content;
 		}

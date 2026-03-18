@@ -259,7 +259,7 @@ export interface TTMLMetadata {
 	/**
 	 * 其他原始的自定义属性
 	 */
-	rawProperties?: Record<string, string>;
+	rawProperties?: Record<string, string[]>;
 }
 
 /**
