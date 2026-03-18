@@ -1,6 +1,6 @@
 {
 	"name": "ttml-processor",
-	"version": "0.1.1",
+	"version": "0.1.2",
 	"description": "适用于 AMLL 项目的 TTML 歌词解析与生成器",
 	"type": "module",
 	"main": "./dist/index.mjs",
