@@ -14,7 +14,10 @@ import type {
 /**
  * 将本解析器复杂的数据结构降级为 AMLL 所使用的较简单的数据结构
  */
-export function toAmllLyrics(result: TTMLResult): AmllLyricLine[] {
+export function toAmllLyrics(
+	result: TTMLResult,
+	options?: AmllImportOptions,
+): AmllLyricLine[] {
 	const amllLines: AmllLyricLine[] = [];
 
 	const convertToAmllLine = (
@@ -44,15 +47,27 @@ export function toAmllLyrics(result: TTMLResult): AmllLyricLine[] {
 
 		let transText = "";
 		if (source.translations && source.translations.length > 0) {
-			transText = source.translations[0].text;
+			const targetTrans =
+				(options?.translationLanguage &&
+					source.translations.find(
+						(t) => t.language === options.translationLanguage,
+					)) ||
+				source.translations[0];
+			transText = targetTrans.text;
 		}
 
 		let romanText = "";
 		let romanWords: Syllable[] | undefined;
 		if (source.romanizations && source.romanizations.length > 0) {
-			const val = source.romanizations[0];
-			romanText = val.text;
-			romanWords = val.words;
+			const targetRoman =
+				(options?.romanizationLanguage &&
+					source.romanizations.find(
+						(r) => r.language === options.romanizationLanguage,
+					)) ||
+				source.romanizations[0];
+
+			romanText = targetRoman.text;
+			romanWords = targetRoman.words;
 		}
 
 		const isDuet = agentId !== "v1";
