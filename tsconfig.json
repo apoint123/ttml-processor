@@ -19,6 +19,8 @@
 		"noEmit": true,
 		"isolatedModules": true,
 		"incremental": true,
+		"declaration": true,
+		"isolatedDeclarations": true,
 
 		// Best practices
 		"strict": true,
