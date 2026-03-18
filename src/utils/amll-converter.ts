@@ -66,8 +66,11 @@ export function toAmllLyrics(
 					)) ||
 				source.romanizations[0];
 
-			romanText = targetRoman.text;
 			romanWords = targetRoman.words;
+
+			if (!romanWords || romanWords.length === 0) {
+				romanText = targetRoman.text;
+			}
 		}
 
 		const isDuet = agentId !== "v1";
