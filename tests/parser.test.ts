@@ -3,9 +3,8 @@ import { beforeAll, describe, expect, test } from "bun:test";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { DOMImplementation, DOMParser, XMLSerializer } from "@xmldom/xmldom";
-import { TTMLGenerator } from "@/generator";
-import { TTMLParser } from "@/parser";
-import type { AmllLyricLine, TTMLResult } from "@/types";
+import type { AmllLyricLine, TTMLResult } from "@/index";
+import { TTMLGenerator, TTMLParser, toAmllLyrics } from "@/index";
 
 const XML = readFileSync(
 	join(import.meta.dir, "fixtures", "complex-test-song.ttml"),
@@ -450,7 +449,7 @@ describe("toAmllLyrics Conversion", () => {
 	beforeAll(() => {
 		parser = new TTMLParser({ domParser: new DOMParser() });
 		result = parser.parse(XML);
-		amllLines = TTMLParser.toAmllLyrics(result);
+		amllLines = toAmllLyrics(result);
 	});
 
 	test("Structure: 应当转换为扁平化的数组结构", () => {

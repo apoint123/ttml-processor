@@ -1,8 +1,6 @@
 import { Attributes, Elements, NodeType, NS, Values } from "./constants";
 import type {
 	Agent,
-	AmllLyricLine,
-	AmllLyricWord,
 	LyricBase,
 	LyricLine,
 	PlatformId,
@@ -144,106 +142,6 @@ export class TTMLParser {
 		}
 
 		return orderedPlatformIds;
-	}
-
-	/**
-	 * 将本解析器复杂的数据结构降级为 AMLL 所使用的较简单的数据结构
-	 */
-	public static toAmllLyrics(result: TTMLResult): AmllLyricLine[] {
-		const amllLines: AmllLyricLine[] = [];
-
-		const convertToAmllLine = (
-			source: LyricBase,
-			isBG: boolean,
-			agentId: string = "v1",
-		): AmllLyricLine => {
-			let amllWords: AmllLyricWord[] = [];
-
-			if (source.words && source.words.length > 0) {
-				amllWords = source.words.map((w) => ({
-					startTime: w.startTime,
-					endTime: w.endTime,
-					word: w.text + (w.endsWithSpace ? " " : ""),
-					romanWord: "",
-				}));
-			} else {
-				amllWords = [
-					{
-						startTime: source.startTime,
-						endTime: source.endTime,
-						word: source.text,
-						romanWord: "",
-					},
-				];
-			}
-
-			let transText = "";
-			if (source.translations && source.translations.length > 0) {
-				transText = source.translations[0].text;
-			}
-
-			let romanText = "";
-			let romanWords: Syllable[] | undefined;
-			if (source.romanizations && source.romanizations.length > 0) {
-				const val = source.romanizations[0];
-				romanText = val.text;
-				romanWords = val.words;
-			}
-
-			const isDuet = agentId !== "v1";
-
-			if (romanWords && amllWords.length > 0) {
-				TTMLParser.alignRomanization(amllWords, romanWords);
-			}
-
-			return {
-				words: amllWords,
-				translatedLyric: transText,
-				romanLyric: romanText,
-				isBG: isBG,
-				isDuet: isDuet,
-				startTime: source.startTime,
-				endTime: source.endTime,
-			};
-		};
-
-		for (const line of result.lines) {
-			const amllMain = convertToAmllLine(line, false, line.agentId);
-			amllLines.push(amllMain);
-
-			if (line.backgroundVocals) {
-				for (const bg of line.backgroundVocals) {
-					const simpleBg = convertToAmllLine(bg, true, line.agentId);
-					amllLines.push(simpleBg);
-				}
-			}
-		}
-
-		return amllLines;
-	}
-
-	private static alignRomanization(
-		amllWords: AmllLyricWord[],
-		romanWords: Syllable[],
-	) {
-		let i = 0;
-		let j = 0;
-		const TIME_TOLERANCE_MS = 30;
-
-		while (i < amllWords.length && j < romanWords.length) {
-			const main = amllWords[i];
-			const sub = romanWords[j];
-
-			if (Math.abs(main.startTime - sub.startTime) < TIME_TOLERANCE_MS) {
-				main.romanWord = sub.text;
-				i++;
-				j++;
-			} else if (sub.startTime < main.startTime) {
-				j++;
-			} else {
-				i++;
-			}
-		}
 	}
 
 	private parseHead(doc: Document): {

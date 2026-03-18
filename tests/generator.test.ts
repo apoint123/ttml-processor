@@ -3,9 +3,8 @@ import { beforeAll, describe, expect, test } from "bun:test";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { DOMImplementation, DOMParser, XMLSerializer } from "@xmldom/xmldom";
-import { TTMLGenerator } from "@/generator";
-import { TTMLParser } from "@/parser";
-import type { TTMLResult } from "@/types";
+import type { TTMLResult } from "@/index";
+import { TTMLGenerator, TTMLParser, toTTMLResult } from "@/index";
 
 const XML = readFileSync(
 	join(import.meta.dir, "fixtures", "complex-test-song.ttml"),
@@ -186,7 +185,7 @@ describe("TTML Generator - toTTMLResult Integration Test", () => {
 			},
 		];
 
-		const ttmlResult = TTMLGenerator.toTTMLResult(amllLines, amllMetadata, {
+		const ttmlResult = toTTMLResult(amllLines, amllMetadata, {
 			mainLanguage: "zh",
 			translationLanguage: "en",
 			romanizationLanguage: "zh-Latn",

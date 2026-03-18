@@ -1,0 +1,288 @@
+import { Values } from "@/constants";
+import type {
+	AmllImportOptions,
+	AmllLyricLine,
+	AmllLyricWord,
+	AmllMetadata,
+	LyricBase,
+	LyricLine,
+	Syllable,
+	TTMLMetadata,
+	TTMLResult,
+} from "@/types";
+
+/**
+ * 将本解析器复杂的数据结构降级为 AMLL 所使用的较简单的数据结构
+ */
+export function toAmllLyrics(result: TTMLResult): AmllLyricLine[] {
+	const amllLines: AmllLyricLine[] = [];
+
+	const convertToAmllLine = (
+		source: LyricBase,
+		isBG: boolean,
+		agentId: string = "v1",
+	): AmllLyricLine => {
+		let amllWords: AmllLyricWord[] = [];
+
+		if (source.words && source.words.length > 0) {
+			amllWords = source.words.map((w) => ({
+				startTime: w.startTime,
+				endTime: w.endTime,
+				word: w.text + (w.endsWithSpace ? " " : ""),
+				romanWord: "",
+			}));
+		} else {
+			amllWords = [
+				{
+					startTime: source.startTime,
+					endTime: source.endTime,
+					word: source.text,
+					romanWord: "",
+				},
+			];
+		}
+
+		let transText = "";
+		if (source.translations && source.translations.length > 0) {
+			transText = source.translations[0].text;
+		}
+
+		let romanText = "";
+		let romanWords: Syllable[] | undefined;
+		if (source.romanizations && source.romanizations.length > 0) {
+			const val = source.romanizations[0];
+			romanText = val.text;
+			romanWords = val.words;
+		}
+
+		const isDuet = agentId !== "v1";
+
+		if (romanWords && amllWords.length > 0) {
+			alignRomanization(amllWords, romanWords);
+		}
+
+		return {
+			words: amllWords,
+			translatedLyric: transText,
+			romanLyric: romanText,
+			isBG: isBG,
+			isDuet: isDuet,
+			startTime: source.startTime,
+			endTime: source.endTime,
+		};
+	};
+
+	for (const line of result.lines) {
+		const amllMain = convertToAmllLine(line, false, line.agentId);
+		amllLines.push(amllMain);
+
+		if (line.backgroundVocals) {
+			for (const bg of line.backgroundVocals) {
+				const simpleBg = convertToAmllLine(bg, true, line.agentId);
+				amllLines.push(simpleBg);
+			}
+		}
+	}
+
+	return amllLines;
+}
+
+function alignRomanization(amllWords: AmllLyricWord[], romanWords: Syllable[]) {
+	let i = 0;
+	let j = 0;
+	const TIME_TOLERANCE_MS = 30;
+
+	while (i < amllWords.length && j < romanWords.length) {
+		const main = amllWords[i];
+		const sub = romanWords[j];
+
+		if (Math.abs(main.startTime - sub.startTime) < TIME_TOLERANCE_MS) {
+			main.romanWord = sub.text;
+			i++;
+			j++;
+		} else if (sub.startTime < main.startTime) {
+			j++;
+		} else {
+			i++;
+		}
+	}
+}
+
+/**
+ * 将 AMLL 格式的歌词和元数据转换为 TTMLResult 结构
+ */
+export function toTTMLResult(
+	amllLines: AmllLyricLine[],
+	amllMetadata: AmllMetadata[],
+	options: AmllImportOptions = {},
+): TTMLResult {
+	const opts = {
+		translationLanguage: "zh-Hans",
+		romanizationLanguage: "ja-Latn",
+		defaultAgentId: "v1",
+		duetAgentId: "v2",
+		...options,
+	};
+
+	const metadata: TTMLMetadata = {
+		agents: {
+			[opts.defaultAgentId]: { id: opts.defaultAgentId },
+			[opts.duetAgentId]: { id: opts.duetAgentId },
+		},
+	};
+
+	for (const entry of amllMetadata) {
+		const { key, value } = entry;
+		if (!value || value.length === 0) continue;
+
+		switch (key) {
+			case Values.MusicName:
+				metadata.title = value;
+				break;
+			case Values.Artists:
+				metadata.artist = value;
+				break;
+			case Values.Album:
+				metadata.album = value;
+				break;
+			case Values.ISRC:
+				metadata.isrc = value;
+				break;
+			case Values.TTMLAuthorGithub:
+				metadata.authorIds = value;
+				break;
+			case Values.TTMLAuthorGithubLogin:
+				metadata.authorNames = value;
+				break;
+			case Values.NCMMusicId:
+			case Values.QQMusicId:
+			case Values.SpotifyId:
+			case Values.AppleMusicId:
+				if (!metadata.platformIds) {
+					metadata.platformIds = {};
+				}
+				metadata.platformIds[key] = value;
+				break;
+			default:
+				if (!metadata.rawProperties) {
+					metadata.rawProperties = {};
+				}
+				metadata.rawProperties[key] = value;
+				break;
+		}
+	}
+
+	const resultLines: LyricLine[] = [];
+	let currentMainLine: LyricLine | null = null;
+	let lineCounter = 1;
+
+	for (const amllLine of amllLines) {
+		const { mainSyllables, romanSyllables, fullText, romanText } =
+			convertWords(amllLine);
+
+		const lyricBase: LyricBase = {
+			startTime: amllLine.startTime,
+			endTime: amllLine.endTime,
+			text: fullText,
+			words: mainSyllables,
+		};
+
+		if (amllLine.translatedLyric) {
+			lyricBase.translations = [
+				{
+					language: opts.translationLanguage,
+					text: amllLine.translatedLyric,
+				},
+			];
+		}
+
+		if (amllLine.romanLyric || romanSyllables.length > 0) {
+			lyricBase.romanizations = [
+				{
+					language: opts.romanizationLanguage,
+					text: amllLine.romanLyric || romanText,
+					words: romanSyllables.length > 0 ? romanSyllables : undefined,
+				},
+			];
+		}
+
+		if (amllLine.isBG) {
+			if (
+				currentMainLine &&
+				(!currentMainLine.backgroundVocals ||
+					currentMainLine.backgroundVocals.length === 0)
+			) {
+				if (!currentMainLine.backgroundVocals) {
+					currentMainLine.backgroundVocals = [];
+				}
+				currentMainLine.backgroundVocals.push(lyricBase);
+			} else {
+				const id = `L${lineCounter++}`;
+				const inheritedAgentId = currentMainLine
+					? currentMainLine.agentId
+					: opts.defaultAgentId;
+
+				const promotedLine: LyricLine = {
+					id,
+					agentId: inheritedAgentId,
+					...lyricBase,
+				};
+				resultLines.push(promotedLine);
+			}
+		} else {
+			const id = `L${lineCounter++}`;
+			const agentId = amllLine.isDuet ? opts.duetAgentId : opts.defaultAgentId;
+
+			const lyricLine: LyricLine = {
+				id,
+				agentId,
+				...lyricBase,
+			};
+
+			resultLines.push(lyricLine);
+			currentMainLine = lyricLine;
+		}
+	}
+
+	return {
+		metadata: metadata,
+		lines: resultLines,
+	};
+}
+
+function convertWords(amllLine: AmllLyricLine) {
+	const mainSyllables: Syllable[] = [];
+	const romanSyllables: Syllable[] = [];
+
+	for (const word of amllLine.words) {
+		const rawText = word.word;
+		const trimmedText = rawText.trimEnd();
+		const hasSpace = rawText !== trimmedText;
+
+		mainSyllables.push({
+			text: trimmedText,
+			startTime: word.startTime,
+			endTime: word.endTime,
+			endsWithSpace: hasSpace,
+		});
+
+		if (word.romanWord) {
+			romanSyllables.push({
+				text: word.romanWord.trim(), // AMLL 那边的实现已经总是 trim 各个逐字音译音节了
+				startTime: word.startTime,
+				endTime: word.endTime,
+			});
+		}
+	}
+
+	const fullText = amllLine.words.map((w) => w.word).join("");
+
+	const romanText =
+		romanSyllables.length > 0
+			? romanSyllables
+					.map((s) => s.text + (s.endsWithSpace ? " " : ""))
+					.join("")
+			: "";
+
+	return { mainSyllables, romanSyllables, fullText, romanText };
+}
