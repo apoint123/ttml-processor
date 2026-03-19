@@ -90,7 +90,7 @@ export class TTMLParser {
 
 		this.parseBody(doc, result, sidecar);
 
-		result.metadata.timingMode = this.inferTimingMode(result.lines);
+		result.metadata.timingMode ??= this.inferTimingMode(result.lines);
 
 		if (result.metadata.platformIds) {
 			result.metadata.platformIds = this.sortPlatformIds(
