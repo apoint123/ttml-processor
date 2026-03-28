@@ -192,7 +192,6 @@ export function toTTMLResult(
 
 	const resultLines: LyricLine[] = [];
 	let currentMainLine: LyricLine | null = null;
-	let lineCounter = 1;
 
 	for (const amllLine of amllLines) {
 		const { mainSyllables, romanSyllables, fullText, romanText } =
@@ -235,24 +234,20 @@ export function toTTMLResult(
 				}
 				currentMainLine.backgroundVocals.push(lyricBase);
 			} else {
-				const id = `L${lineCounter++}`;
 				const inheritedAgentId = currentMainLine
 					? currentMainLine.agentId
 					: opts.defaultAgentId;
 
 				const promotedLine: LyricLine = {
-					id,
 					agentId: inheritedAgentId,
 					...lyricBase,
 				};
 				resultLines.push(promotedLine);
 			}
 		} else {
-			const id = `L${lineCounter++}`;
 			const agentId = amllLine.isDuet ? opts.duetAgentId : opts.defaultAgentId;
 
 			const lyricLine: LyricLine = {
-				id,
 				agentId,
 				...lyricBase,
 			};

@@ -119,7 +119,7 @@ export interface LyricLine extends LyricBase {
 	 *
 	 * 例如 "L1", "L2"...
 	 */
-	id: string;
+	id?: string;
 
 	/**
 	 * 演唱者 ID

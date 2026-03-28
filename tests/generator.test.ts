@@ -1,9 +1,8 @@
-/** biome-ignore-all lint/style/noNonNullAssertion: 为了测试 */
 import { beforeAll, describe, expect, test } from "bun:test";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { DOMImplementation, DOMParser, XMLSerializer } from "@xmldom/xmldom";
-import type { TTMLResult } from "@/index";
+import type { AmllLyricLine, AmllMetadata, TTMLResult } from "@/index";
 import { TTMLGenerator, TTMLParser, toTTMLResult } from "@/index";
 
 const XML = readFileSync(
@@ -153,12 +152,12 @@ describe("TTML Generator - toTTMLResult Integration Test", () => {
 	});
 
 	test("应当能从 AMLL 数据结构生成 TTMLResult 并成功序列化为 XML", () => {
-		const amllMetadata = [
+		const amllMetadata: AmllMetadata[] = [
 			{ key: "musicName", value: ["Test Song"] },
 			{ key: "artists", value: ["Artist A", "Artist B"] },
 		];
 
-		const amllLines = [
+		const amllLines: AmllLyricLine[] = [
 			{
 				startTime: 1000,
 				endTime: 3000,
@@ -207,5 +206,65 @@ describe("TTML Generator - toTTMLResult Integration Test", () => {
 		expect(parsed.lines.length).toBe(1);
 		expect(parsed.lines[0].text).toBe("你好");
 		expect(parsed.lines[0].backgroundVocals?.[0].text).toBe("世界");
+	});
+});
+
+describe("TTML Generator - 行 ID 自动生成逻辑测试", () => {
+	let generator: TTMLGenerator;
+
+	beforeAll(() => {
+		generator = new TTMLGenerator({
+			domImplementation: new DOMImplementation(),
+			xmlSerializer: new XMLSerializer(),
+		});
+	});
+
+	const createMockResult = (
+		lines: Partial<TTMLResult["lines"][0]>[],
+	): TTMLResult => ({
+		metadata: { agents: { v1: { id: "v1" } } },
+		lines: lines as TTMLResult["lines"],
+	});
+
+	test("当所有行都没有提供 id 时，应自动生成从 L1 开始的行号", () => {
+		const result = createMockResult([
+			{ startTime: 0, endTime: 1000, text: "Line 1" },
+			{ startTime: 1000, endTime: 2000, text: "Line 2" },
+		]);
+
+		const xml = generator.generate(result);
+
+		expect(xml).toContain('itunes:key="L1"');
+		expect(xml).toContain('itunes:key="L2"');
+	});
+
+	test("当部分行提供 id，部分没有时，应忽略已提供的 id 并统一重新生成行号", () => {
+		const result = createMockResult([
+			{ id: "Custom1", startTime: 0, endTime: 1000, text: "Line 1" },
+			{ startTime: 1000, endTime: 2000, text: "Line 2" },
+			{ id: "Custom3", startTime: 2000, endTime: 3000, text: "Line 3" },
+		]);
+
+		const xml = generator.generate(result);
+
+		expect(xml).not.toContain('"Custom1"');
+		expect(xml).not.toContain('"Custom3"');
+
+		expect(xml).toContain('itunes:key="L1"');
+		expect(xml).toContain('itunes:key="L2"');
+		expect(xml).toContain('itunes:key="L3"');
+	});
+
+	test("当所有行都提供了有效的 id 时，应保留并使用原有的 id", () => {
+		const result = createMockResult([
+			{ id: "Custom1", startTime: 0, endTime: 1000, text: "Line 1" },
+			{ id: "Custom2", startTime: 1000, endTime: 2000, text: "Line 2" },
+		]);
+
+		const xml = generator.generate(result);
+
+		expect(xml).toContain('itunes:key="Custom1"');
+		expect(xml).toContain('itunes:key="Custom2"');
+		expect(xml).not.toContain('itunes:key="L1"');
 	});
 });

@@ -48,6 +48,17 @@ export class TTMLGenerator {
 		this.doc = this.domImpl.createDocument(NS.TT, Elements.TT, null);
 		this.timingMode = result.metadata.timingMode || "Line";
 
+		// 允许调用者自定义所有行的 ID，但是如果只自定义了部分行 ID，为了避免 ID 乱序，我们直接忽略残缺行 ID
+		const allLinesHaveId = result.lines.every(
+			(line) => typeof line.id === "string" && line.id.trim() !== "",
+		);
+
+		if (!allLinesHaveId) {
+			result.lines.forEach((line, index) => {
+				line.id = `L${index + 1}`;
+			});
+		}
+
 		const root = this.doc.documentElement;
 
 		this.setupRootAttributes(root, result);
@@ -220,7 +231,8 @@ export class TTMLGenerator {
 					if (this.shouldMoveToSidecar(content)) {
 						const lang = content.language;
 						if (!translationsMap.has(lang)) translationsMap.set(lang, []);
-						translationsMap.get(lang)?.push({ id: line.id, content });
+						// biome-ignore lint/style/noNonNullAssertion: generate 方法已验证行 id 一定有
+						translationsMap.get(lang)?.push({ id: line.id!, content });
 					}
 				});
 			}
@@ -229,7 +241,8 @@ export class TTMLGenerator {
 					if (this.shouldMoveToSidecar(content)) {
 						const lang = content.language;
 						if (!romansMap.has(lang)) romansMap.set(lang, []);
-						romansMap.get(lang)?.push({ id: line.id, content });
+						// biome-ignore lint/style/noNonNullAssertion: generate 方法已验证行 id 一定有
+						romansMap.get(lang)?.push({ id: line.id!, content });
 					}
 				});
 			}
@@ -330,7 +343,8 @@ export class TTMLGenerator {
 			const p = this.doc.createElement(Elements.P);
 			p.setAttribute(Attributes.Begin, this.formatTime(line.startTime));
 			p.setAttribute(Attributes.End, this.formatTime(line.endTime));
-			p.setAttributeNS(NS.ITUNES, QualifiedAttributes.ITunesKey, line.id);
+			// biome-ignore lint/style/noNonNullAssertion: generate 方法已验证行 id 一定有
+			p.setAttributeNS(NS.ITUNES, QualifiedAttributes.ITunesKey, line.id!);
 			if (line.agentId) {
 				p.setAttributeNS(NS.TTM, QualifiedAttributes.TTMAgent, line.agentId);
 			}
