@@ -67,8 +67,8 @@ describe("TTML Integration Test", () => {
 	});
 
 	test("Metadata: 应当建立 Agent 映射表", () => {
-		expect(result.metadata.agents.v1?.name).toBe("Vocalist A (Taro)");
-		expect(result.metadata.agents.v1000?.name).toBe("Chorus Group");
+		expect(result.metadata.agents?.v1?.name).toBe("Vocalist A (Taro)");
+		expect(result.metadata.agents?.v1000?.name).toBe("Chorus Group");
 	});
 
 	test("应当能正确解析 Songwriters 列表", () => {
@@ -347,11 +347,11 @@ describe("TTML Integration Test", () => {
 
 	test("Agents: 应当正确映射所有演唱者", () => {
 		expect(result.metadata.agents).toBeDefined();
-		expect(Object.keys(result.metadata.agents)).toHaveLength(3);
+		expect(Object.keys(result.metadata.agents ?? {})).toHaveLength(3);
 
-		expect(result.metadata.agents.v1?.name).toBe("Vocalist A (Taro)");
-		expect(result.metadata.agents.v2?.name).toBe("Vocalist B (Hanako)");
-		expect(result.metadata.agents.v1000?.name).toBe("Chorus Group");
+		expect(result.metadata.agents?.v1?.name).toBe("Vocalist A (Taro)");
+		expect(result.metadata.agents?.v2?.name).toBe("Vocalist B (Hanako)");
+		expect(result.metadata.agents?.v1000?.name).toBe("Chorus Group");
 	});
 
 	test("Romanization: 应当解析音译的合并文本", () => {

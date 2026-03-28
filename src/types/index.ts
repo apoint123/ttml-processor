@@ -249,7 +249,7 @@ export interface TTMLMetadata {
 	/**
 	 * 演唱者映射表
 	 */
-	agents: Record<string, Agent>;
+	agents?: Record<string, Agent>;
 
 	/**
 	 * 平台关联 ID

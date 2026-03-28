@@ -23,7 +23,7 @@ export function toAmllLyrics(
 	const convertToAmllLine = (
 		source: LyricBase,
 		isBG: boolean,
-		agentId: string = "v1",
+		agentId: string = Values.AgentDefault,
 	): AmllLyricLine => {
 		let amllWords: AmllLyricWord[] = [];
 
@@ -73,7 +73,7 @@ export function toAmllLyrics(
 			}
 		}
 
-		const isDuet = agentId !== "v1";
+		const isDuet = agentId !== Values.AgentDefault;
 
 		if (romanWords && amllWords.length > 0) {
 			alignRomanization(amllWords, romanWords);
@@ -137,8 +137,8 @@ export function toTTMLResult(
 	const opts = {
 		translationLanguage: "zh-Hans",
 		romanizationLanguage: "ja-Latn",
-		defaultAgentId: "v1",
-		duetAgentId: "v2",
+		defaultAgentId: Values.AgentDefault,
+		duetAgentId: Values.AgentDefaultDuet,
 		...options,
 	};
 

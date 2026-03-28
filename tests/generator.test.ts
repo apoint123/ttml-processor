@@ -268,3 +268,113 @@ describe("TTML Generator - 行 ID 自动生成逻辑测试", () => {
 		expect(xml).not.toContain('itunes:key="L1"');
 	});
 });
+
+describe("TTML Generator - Agent 自动生成与补全逻辑测试", () => {
+	let generator: TTMLGenerator;
+
+	beforeAll(() => {
+		generator = new TTMLGenerator({
+			domImplementation: new DOMImplementation(),
+			xmlSerializer: new XMLSerializer(),
+		});
+	});
+
+	test("当未提供 meta.agents 且歌词行未提供 agentId 时，应默认推断并生成 v1", () => {
+		const result: TTMLResult = {
+			metadata: {},
+			lines: [
+				{ startTime: 0, endTime: 1000, text: "Line 1" },
+				{ startTime: 1000, endTime: 2000, text: "Line 2" },
+			],
+		};
+
+		const xml = generator.generate(result);
+
+		expect(xml).toContain('<ttm:agent type="person" xml:id="v1"');
+		const pTagMatches = xml.match(/ttm:agent="v1"/g);
+		expect(pTagMatches?.length).toBe(2);
+	});
+
+	test("当未提供 meta.agents 但歌词行提供了不同的 agentId 时，应自动提取所有出现的 agentId 并去重", () => {
+		const result: TTMLResult = {
+			metadata: {},
+			lines: [
+				{ agentId: "v1", startTime: 0, endTime: 1000, text: "Line 1" },
+				{ agentId: "v2", startTime: 1000, endTime: 2000, text: "Line 2" },
+				{ agentId: "v1", startTime: 2000, endTime: 3000, text: "Line 3" },
+			],
+		};
+
+		const xml = generator.generate(result);
+
+		const v1AgentDeclMatches = xml.match(
+			/<ttm:agent type="person" xml:id="v1"/g,
+		);
+		const v2AgentDeclMatches = xml.match(
+			/<ttm:agent type="person" xml:id="v2"/g,
+		);
+
+		expect(v1AgentDeclMatches?.length).toBe(1);
+		expect(v2AgentDeclMatches?.length).toBe(1);
+	});
+
+	test("当提供了 meta.agents 时，应以提供的 agents 为准，不进行自动推断", () => {
+		const result: TTMLResult = {
+			metadata: {
+				agents: {
+					v3: { id: "v3", name: "Custom Singer", type: "person" },
+				},
+			},
+			lines: [
+				{ agentId: "v1", startTime: 0, endTime: 1000, text: "Line 1" },
+				{ agentId: "v2", startTime: 1000, endTime: 2000, text: "Line 2" },
+			],
+		};
+
+		const xml = generator.generate(result);
+
+		expect(xml).toContain('xml:id="v3"');
+		expect(xml).toContain("Custom Singer");
+
+		expect(xml).not.toContain('<ttm:agent type="person" xml:id="v1"');
+		expect(xml).not.toContain('<ttm:agent type="person" xml:id="v2"');
+
+		expect(xml).toContain(
+			'<p begin="0.000" end="1.000" itunes:key="L1" ttm:agent="v1">',
+		);
+		expect(xml).toContain(
+			'<p begin="1.000" end="2.000" itunes:key="L2" ttm:agent="v2">',
+		);
+	});
+
+	test("当歌词行中有 ID 为 v1000 的演唱者时，推断生成的 agent 类型应为 group", () => {
+		const result: TTMLResult = {
+			metadata: {},
+			lines: [
+				{
+					agentId: "v1",
+					startTime: 0,
+					endTime: 1000,
+					text: "Line 1",
+				},
+				{
+					agentId: "v1000",
+					startTime: 1000,
+					endTime: 2000,
+					text: "Chorus Line",
+				},
+			],
+		};
+
+		const xml = generator.generate(result);
+
+		expect(xml).toContain('<ttm:agent type="person" xml:id="v1"');
+		expect(xml).toContain('<ttm:agent type="group" xml:id="v1000"');
+		expect(xml).toContain(
+			'<p begin="0.000" end="1.000" itunes:key="L1" ttm:agent="v1">',
+		);
+		expect(xml).toContain(
+			'<p begin="1.000" end="2.000" itunes:key="L2" ttm:agent="v1000">',
+		);
+	});
+});

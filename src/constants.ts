@@ -84,6 +84,8 @@ export const Values = {
 	Person: "person",
 	Full: "full",
 	AgentGroup: "v1000",
+	AgentDefault: "v1",
+	AgentDefaultDuet: "v2",
 } as const;
 
 // 为了兼容 nodejs 环境而重新定义

@@ -239,6 +239,9 @@ export class TTMLParser {
 				}
 			}
 
+			if (!meta.agents) {
+				meta.agents = {};
+			}
 			meta.agents[id] = agentObj;
 		}
 	}

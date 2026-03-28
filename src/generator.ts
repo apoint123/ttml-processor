@@ -6,6 +6,7 @@ import {
 	Values,
 } from "./constants";
 import type {
+	Agent,
 	GeneratorOptions,
 	LyricBase,
 	Syllable,
@@ -53,11 +54,15 @@ export class TTMLGenerator {
 			(line) => typeof line.id === "string" && line.id.trim() !== "",
 		);
 
-		if (!allLinesHaveId) {
-			result.lines.forEach((line, index) => {
+		result.lines.forEach((line, index) => {
+			if (!allLinesHaveId) {
 				line.id = `L${index + 1}`;
-			});
-		}
+			}
+			// 未提供 agentId，默认所有行的 agentId 均为默认 v1
+			if (!line.agentId) {
+				line.agentId = Values.AgentDefault;
+			}
+		});
 
 		const root = this.doc.documentElement;
 
@@ -121,7 +126,27 @@ export class TTMLGenerator {
 
 		const meta = result.metadata;
 
-		Object.values(meta.agents).forEach((agent) => {
+		let agentsToGenerate: Agent[] = [];
+
+		if (meta.agents && Object.keys(meta.agents).length > 0) {
+			agentsToGenerate = Object.values(meta.agents);
+		} else {
+			const uniqueAgentIds = new Set<string>();
+			result.lines.forEach((line) => {
+				if (line.agentId) {
+					uniqueAgentIds.add(line.agentId);
+				}
+			});
+
+			uniqueAgentIds.forEach((id) => {
+				agentsToGenerate.push({
+					id,
+					type: id === Values.AgentGroup ? Values.Group : Values.Person,
+				});
+			});
+		}
+
+		agentsToGenerate.forEach((agent) => {
 			const { id, name, type: agentType } = agent;
 			const agentEl = this.doc.createElementNS(
 				NS.TTM,
