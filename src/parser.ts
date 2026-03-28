@@ -565,13 +565,44 @@ export class TTMLParser {
 	}
 
 	private parseCommonContent(element: Element): LyricBase {
-		const beginStr =
+		const beginAttr =
 			this.getAttr(element, NS.XML, Attributes.Begin) ||
 			element.getAttribute(Attributes.Begin);
-		const endStr =
+		const endAttr =
 			this.getAttr(element, NS.XML, Attributes.End) ||
 			element.getAttribute(Attributes.End);
+		const originalStartTime = this.parseTime(beginAttr);
+		const originalEndTime = this.parseTime(endAttr);
 
+		const state = this.extractNodeState(element);
+
+		this.finalizeWords(state.words);
+
+		const { startTime, endTime } = this.calculateTimeRange(
+			originalStartTime,
+			originalEndTime,
+			state.words,
+			state.backgroundVocals,
+		);
+
+		const cleanFullText = state.fullText
+			.trim()
+			.replace(TTMLParser.MULTI_SPACE_REGEX, " ");
+		const hasTimeAttrs = beginAttr !== null || endAttr !== null;
+		this.applyFallbackWord(
+			state.words,
+			cleanFullText,
+			hasTimeAttrs,
+			originalStartTime,
+			originalEndTime,
+			startTime,
+			endTime,
+		);
+
+		return this.buildLyricBase(state, cleanFullText, startTime, endTime);
+	}
+
+	private extractNodeState(element: Element): IParsedState {
 		const state: IParsedState = {
 			fullText: "",
 			words: [],
@@ -589,59 +620,71 @@ export class TTMLParser {
 			}
 		}
 
-		const finalizedWords = this.finalizeWords(state.words);
+		return state;
+	}
 
-		const originalStartTime = this.parseTime(beginStr);
-		const originalEndTime = this.parseTime(endStr);
+	private calculateTimeRange(
+		originalStart: number,
+		originalEnd: number,
+		words: Syllable[],
+		bgVocals: LyricBase[],
+	): { startTime: number; endTime: number } {
+		let startTime = originalStart;
+		let endTime = originalEnd;
 
-		let calculatedStartTime = originalStartTime;
-		let calculatedEndTime = originalEndTime;
+		const timedElements = [...words, ...bgVocals];
 
-		const allTimedElements = [...finalizedWords, ...state.backgroundVocals];
+		if (timedElements.length > 0) {
+			let minChildStart = Infinity;
+			let maxChildEnd = 0;
 
-		if (allTimedElements.length > 0) {
-			const minChildStart = Math.min(
-				...allTimedElements.map((e) => e.startTime),
-			);
-			const maxChildEnd = Math.max(...allTimedElements.map((e) => e.endTime));
-
-			if (
-				calculatedStartTime === 0 ||
-				(minChildStart > 0 && minChildStart < calculatedStartTime)
-			) {
-				calculatedStartTime = minChildStart;
+			for (const el of timedElements) {
+				if (el.startTime < minChildStart) minChildStart = el.startTime;
+				if (el.endTime > maxChildEnd) maxChildEnd = el.endTime;
 			}
 
-			if (calculatedEndTime === 0 || maxChildEnd > calculatedEndTime) {
-				calculatedEndTime = maxChildEnd;
+			if (startTime === 0 || (minChildStart > 0 && minChildStart < startTime)) {
+				startTime = minChildStart === Infinity ? 0 : minChildStart;
+			}
+
+			if (endTime === 0 || maxChildEnd > endTime) {
+				endTime = maxChildEnd;
 			}
 		}
 
-		const cleanFullText = state.fullText
-			.trim()
-			.replace(TTMLParser.MULTI_SPACE_REGEX, " ");
+		return { startTime, endTime };
+	}
 
-		const hasTimeAttrs = beginStr !== null || endStr !== null;
-
-		if (
-			finalizedWords.length === 0 &&
-			cleanFullText.length > 0 &&
-			hasTimeAttrs
-		) {
-			finalizedWords.push({
-				text: cleanFullText,
-				startTime:
-					originalStartTime > 0 ? originalStartTime : calculatedStartTime,
-				endTime: originalEndTime > 0 ? originalEndTime : calculatedEndTime,
+	private applyFallbackWord(
+		words: Syllable[],
+		cleanText: string,
+		hasTimeAttrs: boolean,
+		origStart: number,
+		origEnd: number,
+		calcStart: number,
+		calcEnd: number,
+	): void {
+		if (words.length === 0 && cleanText.length > 0 && hasTimeAttrs) {
+			words.push({
+				text: cleanText,
+				startTime: origStart > 0 ? origStart : calcStart,
+				endTime: origEnd > 0 ? origEnd : calcEnd,
 				endsWithSpace: false,
 			});
 		}
+	}
 
+	private buildLyricBase(
+		state: IParsedState,
+		cleanText: string,
+		startTime: number,
+		endTime: number,
+	): LyricBase {
 		return {
-			text: cleanFullText,
-			startTime: calculatedStartTime,
-			endTime: calculatedEndTime,
-			words: finalizedWords.length > 0 ? finalizedWords : undefined,
+			text: cleanText,
+			startTime,
+			endTime,
+			words: state.words.length > 0 ? state.words : undefined,
 			translations:
 				state.translations.length > 0 ? state.translations : undefined,
 			romanizations:
