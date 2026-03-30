@@ -460,7 +460,7 @@ describe("toAmllLyrics Conversion", () => {
 	test("Main Lyrics: 应当处理 duets 标记", () => {
 		expect(amllLines[0].isDuet).toBeFalse();
 		expect(amllLines[1].isDuet).toBeTrue();
-		expect(amllLines[2].isDuet).toBeTrue();
+		expect(amllLines[2].isDuet).toBeFalse();
 	});
 
 	test("Background: 应当设置 isBG 标记", () => {
@@ -468,5 +468,29 @@ describe("toAmllLyrics Conversion", () => {
 		expect(bgLine.isBG).toBeTrue();
 		expect(bgLine.translatedLyric).toBe("Background");
 		expect(bgLine.romanLyric).toBe("haikei");
+	});
+
+	const toLayoutSnapshot = (lines: AmllLyricLine[]) =>
+		lines.map((line) => {
+			const time = (line.startTime / 1000).toFixed(2).padStart(6, " ");
+			const position = line.isDuet ? "右" : "左";
+			const typeMark = line.isBG ? "[bg]" : "[main]";
+			const text = line.words
+				.map((w) => w.word)
+				.join("")
+				.trim();
+			return `[${time}s] ${position} ${typeMark} : ${text}`;
+		});
+
+	test.each([
+		["带多个演唱者的 Apple Music 风格的对唱左右位置", "apple-music-duet.ttml"],
+		["带 v2000 other 的 Apple Music TTML", "apple-music-other-duet.ttml"],
+	])("Duet Alignment: 应当能正确计算%s", (_, fixture) => {
+		const xml = readFileSync(
+			join(import.meta.dir, "fixtures", fixture),
+			"utf-8",
+		);
+		const lines = toAmllLyrics(parser.parse(xml));
+		expect(toLayoutSnapshot(lines)).toMatchSnapshot();
 	});
 });

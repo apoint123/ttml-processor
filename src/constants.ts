@@ -82,6 +82,7 @@ export const Values = {
 	RoleRoman: "x-roman",
 	Group: "group",
 	Person: "person",
+	Other: "other",
 	Full: "full",
 	AgentGroup: "v1000",
 	AgentDefault: "v1",

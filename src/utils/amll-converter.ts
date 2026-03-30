@@ -23,7 +23,7 @@ export function toAmllLyrics(
 	const convertToAmllLine = (
 		source: LyricBase,
 		isBG: boolean,
-		agentId: string = Values.AgentDefault,
+		isDuet: boolean,
 	): AmllLyricLine => {
 		let amllWords: AmllLyricWord[] = [];
 
@@ -73,8 +73,6 @@ export function toAmllLyrics(
 			}
 		}
 
-		const isDuet = agentId !== Values.AgentDefault;
-
 		if (romanWords && amllWords.length > 0) {
 			alignRomanization(amllWords, romanWords);
 		}
@@ -90,13 +88,46 @@ export function toAmllLyrics(
 		};
 	};
 
+	let lastPersonAgentId: string | null = null;
+	let lastPersonIsDuet: boolean = false;
+
 	for (const line of result.lines) {
-		const amllMain = convertToAmllLine(line, false, line.agentId);
+		const agentId = line.agentId || Values.AgentDefault;
+		const agent = result.metadata.agents?.[agentId];
+		const isGroup = agent?.type === Values.Group;
+		const isOther = agent?.type === Values.Other;
+
+		let currentIsDuet = false;
+
+		// Apple Music 风格的对唱识别逻辑
+		if (isGroup) {
+			// 合唱始终居左，且不影响其他 agent type 的交替计算
+			currentIsDuet = false;
+		} else if (isOther) {
+			// other 类型始终居右
+			currentIsDuet = true;
+		} else {
+			if (lastPersonAgentId === null) {
+				// 默认起始位置为左侧
+				currentIsDuet = false;
+				lastPersonAgentId = agentId;
+				lastPersonIsDuet = currentIsDuet;
+			} else if (lastPersonAgentId === agentId) {
+				currentIsDuet = lastPersonIsDuet;
+			} else {
+				// 与上一次演唱者不同，翻转对唱侧
+				currentIsDuet = !lastPersonIsDuet;
+				lastPersonAgentId = agentId;
+				lastPersonIsDuet = currentIsDuet;
+			}
+		}
+
+		const amllMain = convertToAmllLine(line, false, currentIsDuet);
 		amllLines.push(amllMain);
 
 		if (line.backgroundVocals) {
 			for (const bg of line.backgroundVocals) {
-				const simpleBg = convertToAmllLine(bg, true, line.agentId);
+				const simpleBg = convertToAmllLine(bg, true, currentIsDuet);
 				amllLines.push(simpleBg);
 			}
 		}
