@@ -4,8 +4,8 @@ import type {
 	LyricBase,
 	LyricLine,
 	PlatformId,
+	SubLyricContent,
 	Syllable,
-	TranslatedContent,
 	TTMLMetadata,
 	TTMLParserOptions,
 	TTMLResult,
@@ -16,15 +16,15 @@ import type {
  */
 interface IExtensionSidecar {
 	[lineId: string]: {
-		translations?: TranslatedContent[];
-		romanizations?: TranslatedContent[];
+		translations?: SubLyricContent[];
+		romanizations?: SubLyricContent[];
 	};
 }
 
 interface IParsedState {
 	fullText: string;
 	words: Syllable[];
-	translations: TranslatedContent[];
+	translations: SubLyricContent[];
 	romanizations: { text: string; language?: string }[];
 	backgroundVocals: LyricBase[];
 }
@@ -33,10 +33,19 @@ export class TTMLParser {
 	private domParser: DOMParser;
 
 	private static readonly TIME_REGEX =
-		/^(?:(?:(\d+):)?(\d+):)?(\d+(?:\.\d+)?)$/;
+		/^(?:(?:(?<hours>\d+):)?(?<minutes>\d+):)?(?<seconds>\d+(?:\.\d+)?)$/;
 	private static readonly LEADING_SPACE_REGEX = /^\s/;
 	private static readonly TRAILING_SPACE_REGEX = /\s$/;
 	private static readonly MULTI_SPACE_REGEX = /\s+/g;
+
+	private normalizeText(
+		text: string | null | undefined,
+		trim: boolean = true,
+	): string {
+		if (!text) return "";
+		const normalized = text.replace(TTMLParser.MULTI_SPACE_REGEX, " ");
+		return trim ? normalized.trim() : normalized;
+	}
 
 	constructor(options?: TTMLParserOptions) {
 		if (options?.domParser) {
@@ -102,19 +111,13 @@ export class TTMLParser {
 	}
 
 	private inferTimingMode(lines: LyricLine[]): "Word" | "Line" {
-		for (const line of lines) {
-			if (line.words && line.words.length > 1) {
-				return "Word";
-			}
-			if (line.backgroundVocals) {
-				for (const bg of line.backgroundVocals) {
-					if (bg.words && bg.words.length > 1) {
-						return "Word";
-					}
-				}
-			}
-		}
-		return "Line";
+		const hasWordTiming = lines.some(
+			(line) =>
+				(line.words?.length ?? 0) > 1 ||
+				line.backgroundVocals?.some((bg) => (bg.words?.length ?? 0) > 1),
+		);
+
+		return hasWordTiming ? "Word" : "Line";
 	}
 
 	private sortPlatformIds(
@@ -239,9 +242,7 @@ export class TTMLParser {
 				}
 			}
 
-			if (!meta.agents) {
-				meta.agents = {};
-			}
+			meta.agents ??= {};
 			meta.agents[id] = agentObj;
 		}
 	}
@@ -287,29 +288,20 @@ export class TTMLParser {
 				case Values.QQMusicId:
 				case Values.SpotifyId:
 				case Values.AppleMusicId:
-					if (!meta.platformIds) {
-						meta.platformIds = {};
-					}
-
-					if (!meta.platformIds[key]) {
-						meta.platformIds[key] = [];
-					}
-
-					meta.platformIds[key].push(value);
+					meta.platformIds ??= {};
+					(meta.platformIds[key] ??= []).push(value);
 					break;
 				default:
-					if (!meta.rawProperties) meta.rawProperties = {};
-					if (!meta.rawProperties[key]) meta.rawProperties[key] = [];
-
-					meta.rawProperties[key].push(value);
+					meta.rawProperties ??= {};
+					(meta.rawProperties[key] ??= []).push(value);
 					break;
 			}
 		}
 	}
 
-	private toTranslatedContent(base: LyricBase): TranslatedContent {
-		const content: TranslatedContent = {
-			text: base.text.trim().replace(TTMLParser.MULTI_SPACE_REGEX, " "),
+	private toTranslatedContent(base: LyricBase): SubLyricContent {
+		const content: SubLyricContent = {
+			text: this.normalizeText(base.text),
 		};
 
 		if (base.words && base.words.length > 0) {
@@ -378,13 +370,11 @@ export class TTMLParser {
 						const parsedContent = this.parseCommonContent(textNode);
 
 						if (forId && parsedContent.text) {
-							if (!sidecar[forId]) sidecar[forId] = {};
-							if (!sidecar[forId][type]) sidecar[forId][type] = [];
-
+							sidecar[forId] ??= {};
 							const content = this.toTranslatedContent(parsedContent);
 							content.language = lang || undefined;
 
-							sidecar[forId][type]?.push(content);
+							(sidecar[forId][type] ??= []).push(content);
 						}
 					}
 				}
@@ -419,21 +409,19 @@ export class TTMLParser {
 
 		const match = cleanStr.match(TTMLParser.TIME_REGEX);
 
-		if (match) {
-			const secStr = match[3];
-			const minStr = match[2];
-			const hrStr = match[1];
+		if (match?.groups) {
+			const { seconds, minutes, hours } = match.groups;
 
-			const seconds = Number(secStr);
-			const minutes = minStr ? parseInt(minStr, 10) : 0;
-			const hours = hrStr ? parseInt(hrStr, 10) : 0;
+			const secNum = Number(seconds);
+			const minNum = minutes ? parseInt(minutes, 10) : 0;
+			const hrNum = hours ? parseInt(hours, 10) : 0;
 
 			if (
-				!Number.isNaN(seconds) &&
-				!Number.isNaN(minutes) &&
-				!Number.isNaN(hours)
+				!Number.isNaN(secNum) &&
+				!Number.isNaN(minNum) &&
+				!Number.isNaN(hrNum)
 			) {
-				const totalSeconds = hours * 3600 + minutes * 60 + seconds;
+				const totalSeconds = hrNum * 3600 + minNum * 60 + secNum;
 				return Math.round(totalSeconds * 1000);
 			}
 		}
@@ -478,13 +466,10 @@ export class TTMLParser {
 
 	private mergeSidecar<T extends LyricBase>(
 		target: T,
-		source: TranslatedContent[],
+		source: SubLyricContent[],
 		field: "translations" | "romanizations",
 	): T {
-		if (!target[field]) {
-			target[field] = [];
-		}
-		target[field].push(...source);
+		(target[field] ??= []).push(...source);
 
 		if (!target.backgroundVocals || target.backgroundVocals.length === 0) {
 			return target;
@@ -493,13 +478,13 @@ export class TTMLParser {
 		for (let i = 0; i < target.backgroundVocals.length; i++) {
 			const targetBg = target.backgroundVocals[i];
 
-			const bgContentsToMerge: TranslatedContent[] = [];
+			const bgContentsToMerge: SubLyricContent[] = [];
 
 			for (const srcItem of source) {
 				const srcBg = srcItem.backgroundVocals?.[i];
 				if (!srcBg) continue;
 
-				const bgContent: TranslatedContent = {
+				const bgContent: SubLyricContent = {
 					language: srcItem.language,
 					text: srcBg.text,
 				};
@@ -515,10 +500,7 @@ export class TTMLParser {
 			}
 
 			if (bgContentsToMerge.length > 0) {
-				if (!targetBg[field]) {
-					targetBg[field] = [];
-				}
-				targetBg[field].push(...bgContentsToMerge);
+				(targetBg[field] ??= []).push(...bgContentsToMerge);
 			}
 		}
 
@@ -588,9 +570,7 @@ export class TTMLParser {
 			state.backgroundVocals,
 		);
 
-		const cleanFullText = state.fullText
-			.trim()
-			.replace(TTMLParser.MULTI_SPACE_REGEX, " ");
+		const cleanFullText = this.normalizeText(state.fullText);
 		const hasTimeAttrs = beginAttr !== null || endAttr !== null;
 		this.applyFallbackWord(
 			state.words,
@@ -703,7 +683,7 @@ export class TTMLParser {
 
 		if (isFormatting && rawText.trim().length === 0) return;
 
-		const normalizedText = rawText.replace(TTMLParser.MULTI_SPACE_REGEX, " ");
+		const normalizedText = this.normalizeText(rawText, false);
 
 		state.fullText += normalizedText;
 
@@ -726,12 +706,12 @@ export class TTMLParser {
 				state.backgroundVocals.push(this.parseBackgroundVocal(el));
 				break;
 			case Values.RoleTranslation: {
-				const translation = this.parseTranslation(el);
+				const translation = this.parseInlineSubContent(el);
 				if (translation) state.translations.push(translation);
 				break;
 			}
 			case Values.RoleRoman: {
-				const romanization = this.parseRomanization(el);
+				const romanization = this.parseInlineSubContent(el);
 				if (romanization) state.romanizations.push(romanization);
 				break;
 			}
@@ -750,7 +730,7 @@ export class TTMLParser {
 			el.getAttribute(Attributes.End);
 
 		const rawWText = el.textContent || "";
-		const normalizedWText = rawWText.replace(TTMLParser.MULTI_SPACE_REGEX, " ");
+		const normalizedWText = this.normalizeText(rawWText, false);
 
 		state.fullText += normalizedWText;
 
@@ -801,7 +781,7 @@ export class TTMLParser {
 		return bgVocal;
 	}
 
-	private parseTranslation(el: Element): TranslatedContent | null {
+	private parseInlineSubContent(el: Element): SubLyricContent | null {
 		const lang = this.getAttr(el, NS.XML, Attributes.Lang);
 		const parsed = this.parseCommonContent(el);
 
@@ -811,24 +791,15 @@ export class TTMLParser {
 		) {
 			const content = this.toTranslatedContent(parsed);
 
+			// 内联的音译和翻译不会出现逐字内容，只有 sidecar 里才会有逐字翻译和音译
 			delete content.words;
 
-			if (lang) content.language = lang;
+			if (lang) {
+				content.language = lang;
+			}
 			return content;
 		}
-		return null;
-	}
 
-	private parseRomanization(
-		el: Element,
-	): { text: string; language?: string } | null {
-		const lang = this.getAttr(el, NS.XML, Attributes.Lang);
-		const rawText = el.textContent || "";
-		const text = rawText.trim().replace(TTMLParser.MULTI_SPACE_REGEX, " ");
-
-		if (text) {
-			return { text, language: lang || undefined };
-		}
 		return null;
 	}
 

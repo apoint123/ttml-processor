@@ -45,7 +45,7 @@ export interface GeneratorOptions {
 /**
  * 翻译/音译的内容
  */
-export interface TranslatedContent {
+export interface SubLyricContent {
 	/**
 	 * 该内容的 BCP-47 语言代码
 	 */
@@ -64,7 +64,7 @@ export interface TranslatedContent {
 	/**
 	 * 嵌套的背景人声翻译/音译内容
 	 */
-	backgroundVocals?: TranslatedContent[];
+	backgroundVocals?: SubLyricContent[];
 }
 
 /**
@@ -97,12 +97,12 @@ export interface LyricBase {
 	/**
 	 * 翻译内容
 	 */
-	translations?: TranslatedContent[];
+	translations?: SubLyricContent[];
 
 	/**
 	 * 音译内容
 	 */
-	romanizations?: TranslatedContent[];
+	romanizations?: SubLyricContent[];
 
 	/**
 	 * 背景人声内容

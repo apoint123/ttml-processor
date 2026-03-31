@@ -2,7 +2,7 @@ import { beforeAll, describe, expect, test } from "bun:test";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { DOMImplementation, DOMParser, XMLSerializer } from "@xmldom/xmldom";
-import type { AmllLyricLine, TranslatedContent, TTMLResult } from "@/index";
+import type { AmllLyricLine, SubLyricContent, TTMLResult } from "@/index";
 import { TTMLGenerator, TTMLParser, toAmllLyrics } from "@/index";
 
 const XML = readFileSync(
@@ -26,7 +26,7 @@ describe("TTML Integration Test", () => {
 	};
 
 	const getTranslation = (
-		item: { translations?: TranslatedContent[] },
+		item: { translations?: SubLyricContent[] },
 		lang: string,
 	) => {
 		const trans = item.translations?.find((t) => t.language === lang);
@@ -35,7 +35,7 @@ describe("TTML Integration Test", () => {
 	};
 
 	const getRomanization = (
-		item: { romanizations?: TranslatedContent[] },
+		item: { romanizations?: SubLyricContent[] },
 		lang: string,
 	) => {
 		const roman = item.romanizations?.find((r) => r.language === lang);

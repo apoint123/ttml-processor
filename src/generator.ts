@@ -9,8 +9,8 @@ import type {
 	Agent,
 	GeneratorOptions,
 	LyricBase,
+	SubLyricContent,
 	Syllable,
-	TranslatedContent,
 	TTMLResult,
 } from "./types";
 
@@ -104,7 +104,7 @@ export class TTMLGenerator {
 	}
 
 	private isLyricBase(
-		content: LyricBase | TranslatedContent,
+		content: LyricBase | SubLyricContent,
 	): content is LyricBase {
 		return "startTime" in content;
 	}
@@ -115,7 +115,7 @@ export class TTMLGenerator {
 		return true;
 	}
 
-	private shouldMoveToSidecar(content: TranslatedContent): boolean {
+	private shouldMoveToSidecar(content: SubLyricContent): boolean {
 		if (content.words && content.words.length > 0) return true;
 		return !!this.options.useSidecar;
 	}
@@ -243,11 +243,11 @@ export class TTMLGenerator {
 
 		const translationsMap = new Map<
 			string | undefined,
-			Array<{ id: string; content: TranslatedContent }>
+			Array<{ id: string; content: SubLyricContent }>
 		>();
 		const romansMap = new Map<
 			string | undefined,
-			Array<{ id: string; content: TranslatedContent }>
+			Array<{ id: string; content: SubLyricContent }>
 		>();
 
 		for (const line of result.lines) {
@@ -385,7 +385,7 @@ export class TTMLGenerator {
 
 	private appendContentToElement(
 		element: Element,
-		content: LyricBase | TranslatedContent,
+		content: LyricBase | SubLyricContent,
 		isBackground: boolean = false,
 	) {
 		if (this.isWordByWord(content.words) && content.words) {
