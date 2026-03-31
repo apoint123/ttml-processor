@@ -378,3 +378,91 @@ describe("TTML Generator - Agent 自动生成与补全逻辑测试", () => {
 		);
 	});
 });
+
+describe("TTML Generator - Ruby 振假名生成逻辑测试", () => {
+	let generator: TTMLGenerator;
+	let parser: TTMLParser;
+
+	beforeAll(() => {
+		generator = new TTMLGenerator({
+			domImplementation: new DOMImplementation(),
+			xmlSerializer: new XMLSerializer(),
+		});
+		parser = new TTMLParser({ domParser: new DOMParser() });
+	});
+
+	test("应当正确生成包含 tts 命名空间和四层嵌套的 Ruby XML，并支持 Round-Trip", () => {
+		const rubyResult: TTMLResult = {
+			metadata: {
+				title: ["Ruby Generation Test"],
+			},
+			lines: [
+				{
+					id: "L1",
+					startTime: 27000,
+					endTime: 28000,
+					text: "これは所詮",
+					words: [
+						{ text: "これは", startTime: 27000, endTime: 27500 },
+						{
+							text: "所",
+							startTime: 27690,
+							endTime: 27820,
+							ruby: [{ text: "しょ", startTime: 27690, endTime: 27820 }],
+						},
+						{
+							text: "詮",
+							startTime: 27820,
+							endTime: 27950,
+							ruby: [
+								{ text: "せ", startTime: 27820, endTime: 27880 },
+								{ text: "ん", startTime: 27880, endTime: 27950 },
+							],
+						},
+					],
+				},
+			],
+		};
+
+		const xml = generator.generate(rubyResult);
+
+		expect(xml).toContain('xmlns:tts="http://www.w3.org/ns/ttml#styling"');
+
+		expect(xml).toContain('tts:ruby="container"');
+		expect(xml).toContain('tts:ruby="base"');
+		expect(xml).toContain('tts:ruby="textContainer"');
+		expect(xml).toContain('tts:ruby="text"');
+
+		expect(xml).toContain('begin="27.000" end="27.500">これは</span>');
+
+		const parsedResult = parser.parse(xml);
+		const parsedLine = parsedResult.lines[0];
+
+		expect(parsedLine.text).toBe("これは所詮");
+		expect(parsedLine.words).toBeDefined();
+		expect(parsedLine.words).toHaveLength(3);
+
+		const rubyWord1 = parsedLine.words?.[1];
+		expect(rubyWord1?.text).toBe("所");
+		expect(rubyWord1?.ruby).toHaveLength(1);
+		expect(rubyWord1?.ruby?.[0]).toMatchObject({
+			text: "しょ",
+			startTime: 27690,
+			endTime: 27820,
+		});
+
+		const rubyWord2 = parsedLine.words?.[2];
+		expect(rubyWord2?.text).toBe("詮");
+		expect(rubyWord2?.ruby).toHaveLength(2);
+		expect(rubyWord2?.ruby?.[0]).toMatchObject({
+			text: "せ",
+			startTime: 27820,
+			endTime: 27880,
+		});
+		expect(rubyWord2?.ruby?.[1]).toMatchObject({
+			text: "ん",
+			startTime: 27880,
+			endTime: 27950,
+		});
+	});
+});

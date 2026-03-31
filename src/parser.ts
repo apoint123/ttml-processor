@@ -1,4 +1,11 @@
-import { Attributes, Elements, NodeType, NS, Values } from "./constants";
+import {
+	Attributes,
+	Elements,
+	NodeType,
+	NS,
+	QualifiedAttributes,
+	Values,
+} from "./constants";
 import type {
 	Agent,
 	LyricBase,
@@ -221,9 +228,12 @@ export class TTMLParser {
 
 			if (!id) continue;
 
-			const type =
-				this.getAttr(agent, NS.TTM, Attributes.Type) ||
-				agent.getAttribute(Attributes.Type);
+			const type = this.getAttr(
+				agent,
+				NS.TTM,
+				Attributes.Type,
+				Attributes.Type,
+			);
 
 			const names = agent.getElementsByTagNameNS(NS.TTM, Elements.Name);
 
@@ -550,12 +560,18 @@ export class TTMLParser {
 	}
 
 	private parseCommonContent(element: Element): LyricBase {
-		const beginAttr =
-			this.getAttr(element, NS.XML, Attributes.Begin) ||
-			element.getAttribute(Attributes.Begin);
-		const endAttr =
-			this.getAttr(element, NS.XML, Attributes.End) ||
-			element.getAttribute(Attributes.End);
+		const beginAttr = this.getAttr(
+			element,
+			NS.XML,
+			Attributes.Begin,
+			Attributes.Begin,
+		);
+		const endAttr = this.getAttr(
+			element,
+			NS.XML,
+			Attributes.End,
+			Attributes.End,
+		);
 		const originalStartTime = this.parseTime(beginAttr);
 		const originalEndTime = this.parseTime(endAttr);
 
@@ -701,6 +717,18 @@ export class TTMLParser {
 	private processElementNode(state: IParsedState, el: Element): void {
 		const role = this.getAttr(el, NS.TTM, Attributes.Role);
 
+		const rubyAttr = this.getAttr(
+			el,
+			NS.TTS,
+			Attributes.Ruby,
+			QualifiedAttributes.TtsRuby,
+		);
+
+		if (rubyAttr === Values.RubyContainer) {
+			this.processRubyElement(state, el);
+			return;
+		}
+
 		switch (role) {
 			case Values.RoleBg:
 				state.backgroundVocals.push(this.parseBackgroundVocal(el));
@@ -721,13 +749,98 @@ export class TTMLParser {
 		}
 	}
 
+	private processRubyElement(state: IParsedState, containerEl: Element): void {
+		let baseText = "";
+		const rubyTags: { text: string; startTime: number; endTime: number }[] = [];
+
+		const childNodes = Array.from(containerEl.childNodes);
+
+		for (const node of childNodes) {
+			if (node.nodeType !== NodeType.ELEMENT_NODE) continue;
+			const childEl = node as Element;
+
+			const childRubyAttr = this.getAttr(
+				childEl,
+				NS.TTS,
+				Attributes.Ruby,
+				QualifiedAttributes.TtsRuby,
+			);
+
+			if (childRubyAttr === Values.RubyBase) {
+				baseText = this.normalizeText(childEl.textContent, false);
+			} else if (childRubyAttr === Values.RubyTextContainer) {
+				const textNodes = Array.from(childEl.childNodes);
+				for (const textNode of textNodes) {
+					if (textNode.nodeType !== NodeType.ELEMENT_NODE) continue;
+					const tNode = textNode as Element;
+
+					const tAttr = this.getAttr(
+						tNode,
+						NS.TTS,
+						Attributes.Ruby,
+						QualifiedAttributes.TtsRuby,
+					);
+
+					if (tAttr === Values.RubyText) {
+						const begin = this.getAttr(
+							tNode,
+							NS.XML,
+							Attributes.Begin,
+							Attributes.Begin,
+						);
+						const end = this.getAttr(
+							tNode,
+							NS.XML,
+							Attributes.End,
+							Attributes.End,
+						);
+						const text = this.normalizeText(tNode.textContent, false).trim();
+
+						if (text && begin && end) {
+							rubyTags.push({
+								text,
+								startTime: this.parseTime(begin),
+								endTime: this.parseTime(end),
+							});
+						}
+					}
+				}
+			}
+		}
+
+		if (!baseText) return;
+
+		state.fullText += baseText;
+
+		let startTime = 0;
+		let endTime = 0;
+		if (rubyTags.length > 0) {
+			startTime = Math.min(...rubyTags.map((t) => t.startTime));
+			endTime = Math.max(...rubyTags.map((t) => t.endTime));
+		}
+
+		const cleanBaseText = baseText.trim();
+		if (cleanBaseText.length > 0) {
+			const endsWithSpace = TTMLParser.TRAILING_SPACE_REGEX.test(baseText);
+			const startsWithSpace = TTMLParser.LEADING_SPACE_REGEX.test(baseText);
+
+			if (startsWithSpace && state.words.length > 0) {
+				state.words[state.words.length - 1].endsWithSpace = true;
+			}
+
+			state.words.push({
+				text: cleanBaseText,
+				startTime,
+				endTime,
+				ruby: rubyTags.length > 0 ? rubyTags : undefined,
+				endsWithSpace: endsWithSpace,
+			});
+		}
+	}
+
 	private processWordElement(state: IParsedState, el: Element): void {
-		const wBegin =
-			this.getAttr(el, NS.XML, Attributes.Begin) ||
-			el.getAttribute(Attributes.Begin);
-		const wEnd =
-			this.getAttr(el, NS.XML, Attributes.End) ||
-			el.getAttribute(Attributes.End);
+		const wBegin = this.getAttr(el, NS.XML, Attributes.Begin, Attributes.Begin);
+		const wEnd = this.getAttr(el, NS.XML, Attributes.End, Attributes.End);
 
 		const rawWText = el.textContent || "";
 		const normalizedWText = this.normalizeText(rawWText, false);
@@ -819,9 +932,15 @@ export class TTMLParser {
 		element: Element,
 		ns: string,
 		localName: string,
+		fallbackAttrName?: string,
 	): string | null {
 		const val = element.getAttributeNS(ns, localName);
 		if (val) return val;
+
+		if (fallbackAttrName) {
+			const fallbackVal = element.getAttribute(fallbackAttrName);
+			if (fallbackVal) return fallbackVal;
+		}
 
 		if (element.hasAttributes()) {
 			const attributes = Array.from(element.attributes);

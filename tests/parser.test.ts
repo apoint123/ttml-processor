@@ -10,6 +10,11 @@ const XML = readFileSync(
 	"utf-8",
 );
 
+const RUBY_XML = readFileSync(
+	join(import.meta.dir, "fixtures", "ruby-test-song.ttml"),
+	"utf-8",
+);
+
 describe("TTML Integration Test", () => {
 	let parser: TTMLParser;
 	let result: TTMLResult;
@@ -492,5 +497,75 @@ describe("toAmllLyrics Conversion", () => {
 		);
 		const lines = toAmllLyrics(parser.parse(xml));
 		expect(toLayoutSnapshot(lines)).toMatchSnapshot();
+	});
+});
+
+describe("TTML Ruby Integration Test", () => {
+	let parser: TTMLParser;
+	let result: TTMLResult;
+
+	beforeAll(() => {
+		parser = new TTMLParser({ domParser: new DOMParser() });
+		result = parser.parse(RUBY_XML);
+	});
+
+	test("应当正确解析整行文本（包含 Ruby Base 文本）", () => {
+		const l1 = result.lines.find((l) => l.id === "L1");
+		expect(l1).toBeDefined();
+		expect(l1?.text).toBe("これは所詮");
+	});
+
+	test("应当提取 Ruby 容器为独立的 Syllable，并推导正确的时间", () => {
+		const l1 = result.lines.find((l) => l.id === "L1");
+		const words = l1?.words;
+
+		expect(words).toBeDefined();
+		expect(words).toHaveLength(3);
+
+		expect(words?.[0].text).toBe("これは");
+		expect(words?.[0].startTime).toBe(27000);
+
+		expect(words?.[1].text).toBe("所");
+		expect(words?.[1].startTime).toBe(27690);
+		expect(words?.[1].endTime).toBe(27820);
+
+		expect(words?.[2].text).toBe("詮");
+		expect(words?.[2].startTime).toBe(27820);
+		expect(words?.[2].endTime).toBe(27950);
+	});
+
+	test("应当正确提取 Ruby 标注数组 (RubyTags)", () => {
+		const l1 = result.lines.find((l) => l.id === "L1");
+		const words = l1?.words;
+
+		const ruby1 = words?.[1].ruby;
+		expect(ruby1).toBeDefined();
+		expect(ruby1).toHaveLength(1);
+		expect(ruby1?.[0]).toMatchObject({
+			text: "しょ",
+			startTime: 27690,
+			endTime: 27820,
+		});
+
+		const ruby2 = words?.[2].ruby;
+		expect(ruby2).toBeDefined();
+		expect(ruby2).toHaveLength(2);
+		expect(ruby2?.[0]).toMatchObject({
+			text: "せ",
+			startTime: 27820,
+			endTime: 27880,
+		});
+		expect(ruby2?.[1]).toMatchObject({
+			text: "ん",
+			startTime: 27880,
+			endTime: 27950,
+		});
+	});
+
+	test("普通的 Syllable 不应包含 ruby 属性", () => {
+		const l1 = result.lines.find((l) => l.id === "L1");
+		const words = l1?.words;
+
+		expect(words?.[0].ruby).toBeUndefined();
 	});
 });

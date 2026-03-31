@@ -137,21 +137,45 @@ export interface LyricLine extends LyricBase {
 }
 
 /**
+ * Ruby 标注的单个注音音节
+ */
+export interface RubyTag {
+	/**
+	 * 注音文本内容
+	 */
+	text: string;
+
+	/**
+	 * 该注音的开始时间，单位毫秒
+	 */
+	startTime: number;
+
+	/**
+	 * 该注音的结束时间，单位毫秒
+	 */
+	endTime: number;
+}
+
+/**
  * 一个歌词音节
  */
 export interface Syllable {
 	/**
 	 * 该音节的内容
+	 * - 如果是普通音节，为常规歌词文本
+	 * - 如果是 Ruby 标注，这里对应 ruby 的基文本，通常为汉字
 	 */
 	text: string;
 
 	/**
 	 * 该音节的开始时间，单位毫秒
+	 * - 如果是 Ruby 标注，此值为第一个 RubyTag 的 startTime
 	 */
 	startTime: number;
 
 	/**
 	 * 该音节的结束时间，单位毫秒
+	 * - 如果是 Ruby 标注，此值为最后一个 RubyTag 的 endTime
 	 */
 	endTime: number;
 
@@ -161,6 +185,13 @@ export interface Syllable {
 	 * 注意必须根据此标志在歌词后面添加空格，text 中不应包含空格
 	 */
 	endsWithSpace?: boolean;
+
+	/**
+	 * Ruby 标注信息
+	 *
+	 * 如果存在此属性，说明该音节是一个 Ruby 容器
+	 */
+	ruby?: RubyTag[];
 }
 
 /**

@@ -83,6 +83,7 @@ export class TTMLGenerator {
 		root.setAttributeNS(NS.XMLNS, QualifiedAttributes.XmlnsAmll, NS.AMLL);
 		root.setAttributeNS(NS.XMLNS, QualifiedAttributes.XmlnsItunes, NS.ITUNES);
 		root.setAttributeNS(NS.XMLNS, QualifiedAttributes.XmlnsTtm, NS.TTM);
+		root.setAttributeNS(NS.XMLNS, QualifiedAttributes.XmlnsTts, NS.TTS);
 
 		if (result.metadata.language) {
 			root.setAttributeNS(
@@ -389,29 +390,7 @@ export class TTMLGenerator {
 		isBackground: boolean = false,
 	) {
 		if (this.isWordByWord(content.words) && content.words) {
-			content.words.forEach((syllable, index) => {
-				const span = this.doc.createElement(Elements.Span);
-				span.setAttribute(
-					Attributes.Begin,
-					this.formatTime(syllable.startTime),
-				);
-				span.setAttribute(Attributes.End, this.formatTime(syllable.endTime));
-
-				let text = syllable.text;
-				if (isBackground) {
-					if (index === 0) text = `(${text}`;
-					// biome-ignore lint/style/noNonNullAssertion: 肯定有
-					if (index === content.words!.length - 1) text = `${text})`;
-				}
-
-				span.textContent = text;
-				element.appendChild(span);
-
-				if (syllable.endsWithSpace) {
-					const spaceNode = this.doc.createTextNode(" ");
-					element.appendChild(spaceNode);
-				}
-			});
+			this.appendWords(element, content.words, isBackground);
 		} else {
 			let text = content.text || "";
 			if (isBackground) {
@@ -421,74 +400,161 @@ export class TTMLGenerator {
 		}
 
 		if (this.isLyricBase(content)) {
-			if (content.translations) {
-				content.translations.forEach((trans) => {
-					if (!this.shouldMoveToSidecar(trans)) {
-						const span = this.doc.createElement(Elements.Span);
-						span.setAttributeNS(
-							NS.TTM,
-							QualifiedAttributes.TTMRole,
-							Values.RoleTranslation,
-						);
-						if (trans.language) {
-							span.setAttributeNS(
-								NS.XML,
-								QualifiedAttributes.XmlLang,
-								trans.language,
-							);
-						}
-						this.appendContentToElement(span, trans);
-						element.appendChild(span);
-					}
-				});
-			}
-
-			if (content.romanizations) {
-				content.romanizations.forEach((roman) => {
-					if (!this.shouldMoveToSidecar(roman)) {
-						const span = this.doc.createElement(Elements.Span);
-						span.setAttributeNS(
-							NS.TTM,
-							QualifiedAttributes.TTMRole,
-							Values.RoleRoman,
-						);
-						if (roman.language) {
-							span.setAttributeNS(
-								NS.XML,
-								QualifiedAttributes.XmlLang,
-								roman.language,
-							);
-						}
-						this.appendContentToElement(span, roman);
-						element.appendChild(span);
-					}
-				});
-			}
+			this.appendSubLyrics(element, content);
 		}
 
 		if (content.backgroundVocals && content.backgroundVocals.length > 0) {
-			content.backgroundVocals.forEach((bg) => {
-				const bgSpan = this.doc.createElement(Elements.Span);
-				bgSpan.setAttributeNS(
-					NS.TTM,
-					QualifiedAttributes.TTMRole,
-					Values.RoleBg,
-				);
+			this.appendBackgroundVocals(element, content.backgroundVocals);
+		}
+	}
 
-				if (this.isLyricBase(bg)) {
-					if (bg.startTime > 0 && bg.endTime > 0) {
-						bgSpan.setAttribute(
-							Attributes.Begin,
-							this.formatTime(bg.startTime),
+	private appendWords(
+		element: Element,
+		words: Syllable[],
+		isBackground: boolean,
+	) {
+		words.forEach((syllable, index) => {
+			let text = syllable.text;
+
+			if (isBackground) {
+				if (index === 0) text = `(${text}`;
+				if (index === words.length - 1) text = `${text})`;
+			}
+
+			if (syllable.ruby && syllable.ruby.length > 0) {
+				this.appendRubySyllable(element, syllable, text);
+			} else {
+				this.appendNormalSyllable(element, syllable, text);
+			}
+
+			if (syllable.endsWithSpace) {
+				const spaceNode = this.doc.createTextNode(" ");
+				element.appendChild(spaceNode);
+			}
+		});
+	}
+
+	private appendRubySyllable(
+		element: Element,
+		syllable: Syllable,
+		text: string,
+	) {
+		const containerSpan = this.doc.createElement(Elements.Span);
+		containerSpan.setAttributeNS(
+			NS.TTS,
+			QualifiedAttributes.TtsRuby,
+			Values.RubyContainer,
+		);
+
+		const baseSpan = this.doc.createElement(Elements.Span);
+		baseSpan.setAttributeNS(
+			NS.TTS,
+			QualifiedAttributes.TtsRuby,
+			Values.RubyBase,
+		);
+		baseSpan.textContent = text;
+		containerSpan.appendChild(baseSpan);
+
+		const textContainerSpan = this.doc.createElement(Elements.Span);
+		textContainerSpan.setAttributeNS(
+			NS.TTS,
+			QualifiedAttributes.TtsRuby,
+			Values.RubyTextContainer,
+		);
+
+		syllable.ruby?.forEach((rt) => {
+			const rtSpan = this.doc.createElement(Elements.Span);
+			rtSpan.setAttributeNS(
+				NS.TTS,
+				QualifiedAttributes.TtsRuby,
+				Values.RubyText,
+			);
+			rtSpan.setAttribute(Attributes.Begin, this.formatTime(rt.startTime));
+			rtSpan.setAttribute(Attributes.End, this.formatTime(rt.endTime));
+			rtSpan.textContent = rt.text;
+			textContainerSpan.appendChild(rtSpan);
+		});
+
+		containerSpan.appendChild(textContainerSpan);
+		element.appendChild(containerSpan);
+	}
+
+	private appendNormalSyllable(
+		element: Element,
+		syllable: Syllable,
+		text: string,
+	) {
+		const span = this.doc.createElement(Elements.Span);
+		span.setAttribute(Attributes.Begin, this.formatTime(syllable.startTime));
+		span.setAttribute(Attributes.End, this.formatTime(syllable.endTime));
+		span.textContent = text;
+		element.appendChild(span);
+	}
+
+	private appendSubLyrics(element: Element, content: LyricBase) {
+		if (content.translations) {
+			content.translations.forEach((trans) => {
+				if (!this.shouldMoveToSidecar(trans)) {
+					const span = this.doc.createElement(Elements.Span);
+					span.setAttributeNS(
+						NS.TTM,
+						QualifiedAttributes.TTMRole,
+						Values.RoleTranslation,
+					);
+					if (trans.language) {
+						span.setAttributeNS(
+							NS.XML,
+							QualifiedAttributes.XmlLang,
+							trans.language,
 						);
-						bgSpan.setAttribute(Attributes.End, this.formatTime(bg.endTime));
 					}
+					this.appendContentToElement(span, trans);
+					element.appendChild(span);
 				}
-
-				this.appendContentToElement(bgSpan, bg, true);
-				element.appendChild(bgSpan);
 			});
 		}
+
+		if (content.romanizations) {
+			content.romanizations.forEach((roman) => {
+				if (!this.shouldMoveToSidecar(roman)) {
+					const span = this.doc.createElement(Elements.Span);
+					span.setAttributeNS(
+						NS.TTM,
+						QualifiedAttributes.TTMRole,
+						Values.RoleRoman,
+					);
+					if (roman.language) {
+						span.setAttributeNS(
+							NS.XML,
+							QualifiedAttributes.XmlLang,
+							roman.language,
+						);
+					}
+					this.appendContentToElement(span, roman);
+					element.appendChild(span);
+				}
+			});
+		}
+	}
+
+	private appendBackgroundVocals(
+		element: Element,
+		vocals: LyricBase[] | SubLyricContent[],
+	) {
+		vocals.forEach((bg) => {
+			const bgSpan = this.doc.createElement(Elements.Span);
+			bgSpan.setAttributeNS(NS.TTM, QualifiedAttributes.TTMRole, Values.RoleBg);
+
+			if (this.isLyricBase(bg)) {
+				if (bg.startTime > 0 && bg.endTime > 0) {
+					bgSpan.setAttribute(Attributes.Begin, this.formatTime(bg.startTime));
+					bgSpan.setAttribute(Attributes.End, this.formatTime(bg.endTime));
+				}
+			}
+
+			this.appendContentToElement(bgSpan, bg, true);
+			element.appendChild(bgSpan);
+		});
 	}
 
 	private formatTime(ms: number): string {

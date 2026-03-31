@@ -6,6 +6,7 @@ export const NS = {
 	XML: "http://www.w3.org/XML/1998/namespace",
 	XMLNS: "http://www.w3.org/2000/xmlns/",
 	ITUNES_INTERNAL: "http://music.apple.com/lyric-ttml-internal",
+	TTS: "http://www.w3.org/ns/ttml#styling",
 } as const;
 
 export const Elements = {
@@ -46,6 +47,7 @@ export const Attributes = {
 	Type: "type",
 	Dur: "dur",
 	Xmlns: "xmlns",
+	Ruby: "ruby",
 } as const;
 
 export const QualifiedAttributes = {
@@ -59,8 +61,10 @@ export const QualifiedAttributes = {
 	XmlLang: "xml:lang",
 	XmlId: "xml:id",
 	XmlnsTtm: "xmlns:ttm",
+	XmlnsTts: "xmlns:tts",
 	XmlnsItunes: "xmlns:itunes",
 	XmlnsAmll: "xmlns:amll",
+	TtsRuby: "tts:ruby",
 } as const;
 
 export const Values = {
@@ -87,6 +91,10 @@ export const Values = {
 	AgentGroup: "v1000",
 	AgentDefault: "v1",
 	AgentDefaultDuet: "v2",
+	RubyContainer: "container",
+	RubyBase: "base",
+	RubyTextContainer: "textContainer",
+	RubyText: "text",
 } as const;
 
 // 为了兼容 nodejs 环境而重新定义
