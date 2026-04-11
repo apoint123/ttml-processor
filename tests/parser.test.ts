@@ -375,6 +375,17 @@ describe("TTML Integration Test", () => {
 		);
 	});
 
+	test("L1: 应当正确解析普通音节的不雅用语标记 (amll:obscene)", () => {
+		const l1 = getLine("L1");
+		expect(l1.words).toBeDefined();
+
+		expect(l1.words?.[0].text).toBe("これ");
+		expect(l1.words?.[0].obscene).toBeTrue();
+
+		expect(l1.words?.[1].text).toBe("は");
+		expect(l1.words?.[1].obscene).toBeUndefined();
+	});
+
 	test("Edge Cases: 应当验证所有时间都是有效数字", () => {
 		for (const line of result.lines) {
 			expect(typeof line.startTime).toBe("number");
@@ -475,6 +486,16 @@ describe("toAmllLyrics Conversion", () => {
 		expect(bgLine.isBG).toBeTrue();
 		expect(bgLine.translatedLyric).toBe("Background");
 		expect(bgLine.romanLyric).toBe("haikei");
+	});
+
+	test("Main Lyrics: 应当正确将 obscene 属性透传到 AmllLyricWord", () => {
+		const l1 = amllLines[0];
+
+		expect(l1.words[0].word).toBe("これ");
+		expect(l1.words[0].obscene).toBeTrue();
+
+		expect(l1.words[1].word).toBe("は ");
+		expect(l1.words[1].obscene).toBeUndefined();
 	});
 
 	const toLayoutSnapshot = (lines: AmllLyricLine[]) =>

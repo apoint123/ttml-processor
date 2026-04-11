@@ -192,6 +192,11 @@ export interface Syllable {
 	 * 如果存在此属性，说明该音节是一个 Ruby 容器
 	 */
 	ruby?: RubyTag[];
+
+	/**
+	 * 单词内容是否包含冒犯性的不雅用语
+	 */
+	obscene?: boolean;
 }
 
 /**

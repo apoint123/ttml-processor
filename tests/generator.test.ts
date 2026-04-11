@@ -466,3 +466,98 @@ describe("TTML Generator - Ruby 振假名生成逻辑测试", () => {
 		});
 	});
 });
+
+describe("TTML Generator - Obscene (不雅用语) 生成与转换逻辑测试", () => {
+	let generator: TTMLGenerator;
+	let parser: TTMLParser;
+
+	beforeAll(() => {
+		generator = new TTMLGenerator({
+			domImplementation: new DOMImplementation(),
+			xmlSerializer: new XMLSerializer(),
+		});
+		parser = new TTMLParser({ domParser: new DOMParser() });
+	});
+
+	test("应当在生成的 XML 中正确注入 amll:obscene 属性，并支持 Round-Trip", () => {
+		const result: TTMLResult = {
+			metadata: {},
+			lines: [
+				{
+					id: "L1",
+					startTime: 0,
+					endTime: 3000,
+					text: "bad word rubyBad",
+					words: [
+						{ text: "bad", startTime: 0, endTime: 1000, obscene: true },
+						{
+							text: "word",
+							startTime: 1000,
+							endTime: 2000,
+							endsWithSpace: true,
+						},
+						{
+							text: "rubyBad",
+							startTime: 2000,
+							endTime: 3000,
+							obscene: true,
+							ruby: [{ text: "rb", startTime: 2000, endTime: 3000 }],
+						},
+					],
+				},
+			],
+		};
+
+		const xml = generator.generate(result);
+
+		expect(xml).toContain('amll:obscene="true">bad</span>');
+		expect(xml).not.toContain('amll:obscene="true">word</span>');
+		expect(xml).toContain('tts:ruby="container" amll:obscene="true"');
+
+		const parsed = parser.parse(xml);
+		const parsedWords = parsed.lines[0].words;
+
+		expect(parsedWords).toBeDefined();
+		expect(parsedWords).toHaveLength(3);
+		expect(parsedWords?.[0].obscene).toBeTrue();
+		expect(parsedWords?.[1].obscene).toBeUndefined();
+		expect(parsedWords?.[2].obscene).toBeTrue();
+	});
+
+	test("toTTMLResult: 应当从 AMLL 降级结构正确恢复 obscene 属性", () => {
+		const amllLines: AmllLyricLine[] = [
+			{
+				startTime: 0,
+				endTime: 1000,
+				isBG: false,
+				isDuet: false,
+				translatedLyric: "",
+				romanLyric: "",
+				words: [
+					{
+						startTime: 0,
+						endTime: 500,
+						word: "bad ",
+						romanWord: "",
+						obscene: true,
+					},
+					{ startTime: 500, endTime: 1000, word: "word", romanWord: "" },
+				],
+			},
+		];
+
+		const ttmlResult = toTTMLResult(amllLines, []);
+		const words = ttmlResult.lines[0].words;
+
+		expect(words).toBeDefined();
+		expect(words).toHaveLength(2);
+
+		expect(words?.[0].text).toBe("bad");
+		expect(words?.[0].endsWithSpace).toBeTrue();
+		expect(words?.[0].obscene).toBeTrue();
+
+		expect(words?.[1].text).toBe("word");
+		expect(words?.[1].endsWithSpace).toBeFalse();
+		expect(words?.[1].obscene).toBeUndefined();
+	});
+});

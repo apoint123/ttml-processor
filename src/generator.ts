@@ -446,6 +446,14 @@ export class TTMLGenerator {
 			Values.RubyContainer,
 		);
 
+		if (syllable.obscene) {
+			containerSpan.setAttributeNS(
+				NS.AMLL,
+				QualifiedAttributes.AmlloObscene,
+				Values.True,
+			);
+		}
+
 		const baseSpan = this.doc.createElement(Elements.Span);
 		baseSpan.setAttributeNS(
 			NS.TTS,
@@ -487,6 +495,15 @@ export class TTMLGenerator {
 		const span = this.doc.createElement(Elements.Span);
 		span.setAttribute(Attributes.Begin, this.formatTime(syllable.startTime));
 		span.setAttribute(Attributes.End, this.formatTime(syllable.endTime));
+
+		if (syllable.obscene) {
+			span.setAttributeNS(
+				NS.AMLL,
+				QualifiedAttributes.AmlloObscene,
+				Values.True,
+			);
+		}
+
 		span.textContent = text;
 		element.appendChild(span);
 	}

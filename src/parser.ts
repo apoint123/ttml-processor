@@ -752,6 +752,14 @@ export class TTMLParser {
 	}
 
 	private processRubyElement(state: IParsedState, containerEl: Element): void {
+		const obsceneAttr = this.getAttr(
+			containerEl,
+			NS.AMLL,
+			Attributes.Obscene,
+			QualifiedAttributes.AmlloObscene,
+		);
+		const isObscene = obsceneAttr === "true";
+
 		let baseText = "";
 		const rubyTags: { text: string; startTime: number; endTime: number }[] = [];
 
@@ -836,6 +844,7 @@ export class TTMLParser {
 				endTime,
 				ruby: rubyTags.length > 0 ? rubyTags : undefined,
 				endsWithSpace: endsWithSpace,
+				obscene: isObscene ? true : undefined,
 			});
 		}
 	}
@@ -843,6 +852,14 @@ export class TTMLParser {
 	private processWordElement(state: IParsedState, el: Element): void {
 		const wBegin = this.getAttr(el, NS.XML, Attributes.Begin, Attributes.Begin);
 		const wEnd = this.getAttr(el, NS.XML, Attributes.End, Attributes.End);
+
+		const obsceneAttr = this.getAttr(
+			el,
+			NS.AMLL,
+			Attributes.Obscene,
+			QualifiedAttributes.AmlloObscene,
+		);
+		const isObscene = obsceneAttr === "true";
 
 		const rawWText = el.textContent || "";
 		const normalizedWText = this.normalizeText(rawWText, false);
@@ -872,6 +889,7 @@ export class TTMLParser {
 					startTime: this.parseTime(wBegin),
 					endTime: this.parseTime(wEnd),
 					endsWithSpace: endsWithSpace,
+					obscene: isObscene ? true : undefined,
 				});
 			}
 		}
