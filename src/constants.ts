@@ -100,6 +100,8 @@ export const Values = {
 	RubyTextContainer: "textContainer",
 	RubyText: "text",
 	True: "true",
+	TimingMode: "timingMode",
+	Language: "language",
 } as const;
 
 // 为了兼容 nodejs 环境而重新定义

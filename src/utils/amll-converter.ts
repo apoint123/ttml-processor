@@ -1,4 +1,4 @@
-import { Values } from "@/constants";
+import { Elements, Values } from "@/constants";
 import type {
 	AmllImportOptions,
 	AmllLyricLine,
@@ -7,6 +7,7 @@ import type {
 	LyricBase,
 	LyricLine,
 	Syllable,
+	TTMLLyric,
 	TTMLMetadata,
 	TTMLResult,
 } from "@/types";
@@ -17,7 +18,7 @@ import type {
 export function toAmllLyrics(
 	result: TTMLResult,
 	options?: AmllImportOptions,
-): AmllLyricLine[] {
+): TTMLLyric {
 	const amllLines: AmllLyricLine[] = [];
 
 	const convertToAmllLine = (
@@ -149,7 +150,45 @@ export function toAmllLyrics(
 		}
 	}
 
-	return amllLines;
+	const amllMetadata: [string, string[]][] = [];
+	const meta = result.metadata;
+
+	if (meta.title) amllMetadata.push([Values.MusicName, meta.title]);
+	if (meta.artist) amllMetadata.push([Values.Artists, meta.artist]);
+	if (meta.album) amllMetadata.push([Values.Album, meta.album]);
+	if (meta.isrc) amllMetadata.push([Values.ISRC, meta.isrc]);
+	if (meta.authorIds)
+		amllMetadata.push([Values.TTMLAuthorGithub, meta.authorIds]);
+	if (meta.authorNames)
+		amllMetadata.push([Values.TTMLAuthorGithubLogin, meta.authorNames]);
+
+	if (meta.language) amllMetadata.push([Values.Language, [meta.language]]);
+	if (meta.timingMode)
+		amllMetadata.push([Values.TimingMode, [meta.timingMode]]);
+	if (meta.songwriters)
+		amllMetadata.push([Elements.Songwriters, meta.songwriters]);
+
+	if (meta.platformIds) {
+		if (meta.platformIds.ncmMusicId)
+			amllMetadata.push([Values.NCMMusicId, meta.platformIds.ncmMusicId]);
+		if (meta.platformIds.qqMusicId)
+			amllMetadata.push([Values.QQMusicId, meta.platformIds.qqMusicId]);
+		if (meta.platformIds.spotifyId)
+			amllMetadata.push([Values.SpotifyId, meta.platformIds.spotifyId]);
+		if (meta.platformIds.appleMusicId)
+			amllMetadata.push([Values.AppleMusicId, meta.platformIds.appleMusicId]);
+	}
+
+	if (meta.rawProperties) {
+		for (const [key, value] of Object.entries(meta.rawProperties)) {
+			amllMetadata.push([key, value]);
+		}
+	}
+
+	return {
+		lines: amllLines,
+		metadata: amllMetadata,
+	};
 }
 
 function alignRomanization(amllWords: AmllLyricWord[], romanWords: Syllable[]) {
@@ -197,7 +236,7 @@ export function toTTMLResult(
 	};
 
 	for (const entry of amllMetadata) {
-		const { key, value } = entry;
+		const [key, value] = entry;
 		if (!value || value.length === 0) continue;
 
 		switch (key) {

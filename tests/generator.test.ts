@@ -153,8 +153,8 @@ describe("TTML Generator - toTTMLResult Integration Test", () => {
 
 	test("应当能从 AMLL 数据结构生成 TTMLResult 并成功序列化为 XML", () => {
 		const amllMetadata: AmllMetadata[] = [
-			{ key: "musicName", value: ["Test Song"] },
-			{ key: "artists", value: ["Artist A", "Artist B"] },
+			["musicName", ["Test Song"]],
+			["artists", ["Artist A", "Artist B"]],
 		];
 
 		const amllLines: AmllLyricLine[] = [

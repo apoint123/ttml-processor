@@ -64,9 +64,20 @@ export interface AmllLyricLine {
 	endTime: number;
 }
 
-export interface AmllMetadata {
-	key: string;
-	value: string[];
+export type AmllMetadata = [string, string[]];
+
+/**
+ * 一个 TTML 歌词对象，存储了歌词行信息和 AMLL 元数据信息
+ */
+export interface TTMLLyric {
+	/**
+	 * TTML 中存储的歌词行信息
+	 */
+	lines: AmllLyricLine[];
+	/**
+	 * 一个元数据表，以 `[键, 值数组]` 的形式存储
+	 */
+	metadata: AmllMetadata[];
 }
 
 export interface AmllImportOptions {

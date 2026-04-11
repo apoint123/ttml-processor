@@ -461,7 +461,7 @@ describe("toAmllLyrics Conversion", () => {
 	beforeAll(() => {
 		parser = new TTMLParser({ domParser: new DOMParser() });
 		result = parser.parse(XML);
-		amllLines = toAmllLyrics(result);
+		amllLines = toAmllLyrics(result).lines;
 	});
 
 	test("Structure: 应当转换为扁平化的数组结构", () => {
@@ -539,7 +539,7 @@ describe("toAmllLyrics Conversion", () => {
 			join(import.meta.dir, "fixtures", fixture),
 			"utf-8",
 		);
-		const lines = toAmllLyrics(parser.parse(xml));
+		const lines = toAmllLyrics(parser.parse(xml)).lines;
 		expect(toLayoutSnapshot(lines)).toMatchSnapshot();
 	});
 
@@ -572,7 +572,7 @@ describe("toAmllLyrics Conversion", () => {
 			],
 		};
 
-		const lines = toAmllLyrics(mockRubyResult);
+		const lines = toAmllLyrics(mockRubyResult).lines;
 
 		expect(lines[0].words[0].ruby).toBeDefined();
 		expect(lines[0].words[0].ruby).toMatchObject([
