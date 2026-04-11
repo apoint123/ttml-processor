@@ -28,14 +28,26 @@ export function toAmllLyrics(
 		let amllWords: AmllLyricWord[] = [];
 
 		if (source.words && source.words.length > 0) {
-			amllWords = source.words.map((w) => ({
-				startTime: w.startTime,
-				endTime: w.endTime,
-				word: w.text + (w.endsWithSpace ? " " : ""),
-				romanWord: "",
-				obscene: w.obscene,
-				emptyBeat: w.emptyBeat,
-			}));
+			amllWords = source.words.map((w) => {
+				const amllWord: AmllLyricWord = {
+					startTime: w.startTime,
+					endTime: w.endTime,
+					word: w.text + (w.endsWithSpace ? " " : ""),
+					romanWord: "",
+					obscene: w.obscene,
+					emptyBeat: w.emptyBeat,
+				};
+
+				if (w.ruby && w.ruby.length > 0) {
+					amllWord.ruby = w.ruby.map((r) => ({
+						startTime: r.startTime,
+						endTime: r.endTime,
+						word: r.text,
+					}));
+				}
+
+				return amllWord;
+			});
 		} else {
 			amllWords = [
 				{
@@ -300,14 +312,24 @@ function convertWords(amllLine: AmllLyricLine) {
 		const trimmedText = rawText.trimEnd();
 		const hasSpace = rawText !== trimmedText;
 
-		mainSyllables.push({
+		const syllable: Syllable = {
 			text: trimmedText,
 			startTime: word.startTime,
 			endTime: word.endTime,
 			endsWithSpace: hasSpace,
 			obscene: word.obscene,
 			emptyBeat: word.emptyBeat,
-		});
+		};
+
+		if (word.ruby && word.ruby.length > 0) {
+			syllable.ruby = word.ruby.map((r) => ({
+				startTime: r.startTime,
+				endTime: r.endTime,
+				text: r.word,
+			}));
+		}
+
+		mainSyllables.push(syllable);
 
 		if (word.romanWord) {
 			romanSyllables.push({

@@ -3,7 +3,7 @@ import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { DOMImplementation, DOMParser, XMLSerializer } from "@xmldom/xmldom";
 import type { AmllLyricLine, SubLyricContent, TTMLResult } from "@/index";
-import { TTMLGenerator, TTMLParser, toAmllLyrics } from "@/index";
+import { TTMLGenerator, TTMLParser, toAmllLyrics, toTTMLResult } from "@/index";
 
 const XML = readFileSync(
 	join(import.meta.dir, "fixtures", "complex-test-song.ttml"),
@@ -542,6 +542,49 @@ describe("toAmllLyrics Conversion", () => {
 		const lines = toAmllLyrics(parser.parse(xml));
 		expect(toLayoutSnapshot(lines)).toMatchSnapshot();
 	});
+
+	test("Ruby: 应当正确将 Syllable.ruby 转换为 AmllLyricWord.ruby", () => {
+		const mockRubyResult: TTMLResult = {
+			metadata: {},
+			lines: [
+				{
+					startTime: 0,
+					endTime: 1000,
+					text: "所詮",
+					words: [
+						{
+							text: "所",
+							startTime: 0,
+							endTime: 500,
+							ruby: [{ text: "しょ", startTime: 0, endTime: 500 }],
+						},
+						{
+							text: "詮",
+							startTime: 500,
+							endTime: 1000,
+							ruby: [
+								{ text: "せ", startTime: 500, endTime: 750 },
+								{ text: "ん", startTime: 750, endTime: 1000 },
+							],
+						},
+					],
+				},
+			],
+		};
+
+		const lines = toAmllLyrics(mockRubyResult);
+
+		expect(lines[0].words[0].ruby).toBeDefined();
+		expect(lines[0].words[0].ruby).toMatchObject([
+			{ word: "しょ", startTime: 0, endTime: 500 },
+		]);
+
+		expect(lines[0].words[1].ruby).toBeDefined();
+		expect(lines[0].words[1].ruby).toMatchObject([
+			{ word: "せ", startTime: 500, endTime: 750 },
+			{ word: "ん", startTime: 750, endTime: 1000 },
+		]);
+	});
 });
 
 describe("TTML Ruby Integration Test", () => {
@@ -611,5 +654,53 @@ describe("TTML Ruby Integration Test", () => {
 		const words = l1?.words;
 
 		expect(words?.[0].ruby).toBeUndefined();
+	});
+});
+
+describe("toTTMLResult Conversion", () => {
+	test("Ruby: 应当正确将 AmllLyricWord.ruby 转换为 Syllable.ruby", () => {
+		const mockAmllLines: AmllLyricLine[] = [
+			{
+				startTime: 0,
+				endTime: 1000,
+				isBG: false,
+				isDuet: false,
+				translatedLyric: "",
+				romanLyric: "",
+				words: [
+					{
+						word: "所",
+						startTime: 0,
+						endTime: 500,
+						ruby: [{ word: "しょ", startTime: 0, endTime: 500 }],
+					},
+					{
+						word: "詮",
+						startTime: 500,
+						endTime: 1000,
+						ruby: [
+							{ word: "せ", startTime: 500, endTime: 750 },
+							{ word: "ん", startTime: 750, endTime: 1000 },
+						],
+					},
+				],
+			},
+		];
+
+		const result = toTTMLResult(mockAmllLines, []);
+
+		const words = result.lines[0].words;
+		expect(words).toBeDefined();
+
+		expect(words?.[0].ruby).toBeDefined();
+		expect(words?.[0].ruby).toMatchObject([
+			{ text: "しょ", startTime: 0, endTime: 500 },
+		]);
+
+		expect(words?.[1].ruby).toBeDefined();
+		expect(words?.[1].ruby).toMatchObject([
+			{ text: "せ", startTime: 500, endTime: 750 },
+			{ text: "ん", startTime: 750, endTime: 1000 },
+		]);
 	});
 });
