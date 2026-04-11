@@ -197,6 +197,11 @@ export interface Syllable {
 	 * 单词内容是否包含冒犯性的不雅用语
 	 */
 	obscene?: boolean;
+
+	/**
+	 * 单词的空拍数量，一般只用于方便歌词打轴
+	 */
+	emptyBeat?: number;
 }
 
 /**

@@ -561,3 +561,82 @@ describe("TTML Generator - Obscene (不雅用语) 生成与转换逻辑测试", 
 		expect(words?.[1].obscene).toBeUndefined();
 	});
 });
+
+describe("TTML Generator - Empty Beat (空拍) 生成与转换逻辑测试", () => {
+	let generator: TTMLGenerator;
+	let parser: TTMLParser;
+
+	beforeAll(() => {
+		generator = new TTMLGenerator({
+			domImplementation: new DOMImplementation(),
+			xmlSerializer: new XMLSerializer(),
+		});
+		parser = new TTMLParser({ domParser: new DOMParser() });
+	});
+
+	test("应当在生成的 XML 中正确注入 amll:empty-beat 属性，并支持 Round-Trip", () => {
+		const result: TTMLResult = {
+			metadata: {},
+			lines: [
+				{
+					id: "L1",
+					startTime: 0,
+					endTime: 2000,
+					text: "wait word",
+					words: [
+						{ text: "wait", startTime: 0, endTime: 1000, emptyBeat: 4 },
+						{ text: "word", startTime: 1000, endTime: 2000 },
+					],
+				},
+			],
+		};
+
+		const xml = generator.generate(result);
+
+		expect(xml).toContain('amll:empty-beat="4">wait</span>');
+		expect(xml.match(/amll:empty-beat/g)?.length).toBe(1);
+
+		const parsed = parser.parse(xml);
+		const parsedWords = parsed.lines[0].words;
+
+		expect(parsedWords).toBeDefined();
+		expect(parsedWords).toHaveLength(2);
+		expect(parsedWords?.[0].emptyBeat).toBe(4);
+		expect(parsedWords?.[1].emptyBeat).toBeUndefined();
+	});
+
+	test("toTTMLResult: 应当从 AMLL 降级结构正确恢复 emptyBeat 属性", () => {
+		const amllLines: AmllLyricLine[] = [
+			{
+				startTime: 0,
+				endTime: 1000,
+				isBG: false,
+				isDuet: false,
+				translatedLyric: "",
+				romanLyric: "",
+				words: [
+					{
+						startTime: 0,
+						endTime: 500,
+						word: "wait ",
+						romanWord: "",
+						emptyBeat: 8,
+					},
+					{ startTime: 500, endTime: 1000, word: "word", romanWord: "" },
+				],
+			},
+		];
+
+		const ttmlResult = toTTMLResult(amllLines, []);
+		const words = ttmlResult.lines[0].words;
+
+		expect(words).toBeDefined();
+		expect(words).toHaveLength(2);
+
+		expect(words?.[0].text).toBe("wait");
+		expect(words?.[0].emptyBeat).toBe(8);
+
+		expect(words?.[1].text).toBe("word");
+		expect(words?.[1].emptyBeat).toBeUndefined();
+	});
+});

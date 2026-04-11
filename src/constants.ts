@@ -48,7 +48,8 @@ export const Attributes = {
 	Dur: "dur",
 	Xmlns: "xmlns",
 	Ruby: "ruby",
-	Obscene: "Obscene",
+	Obscene: "obscene",
+	EmptyBeat: "empty-beat",
 } as const;
 
 export const QualifiedAttributes = {
@@ -59,7 +60,8 @@ export const QualifiedAttributes = {
 	TTMRole: "ttm:role",
 	TTMName: "ttm:name",
 	AmllMeta: "amll:meta",
-	AmlloObscene: "amll:obscene",
+	AmllObscene: "amll:obscene",
+	AmllEmptyBeat: "amll:empty-beat",
 	XmlLang: "xml:lang",
 	XmlId: "xml:id",
 	XmlnsTtm: "xmlns:ttm",

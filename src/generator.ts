@@ -449,8 +449,16 @@ export class TTMLGenerator {
 		if (syllable.obscene) {
 			containerSpan.setAttributeNS(
 				NS.AMLL,
-				QualifiedAttributes.AmlloObscene,
+				QualifiedAttributes.AmllObscene,
 				Values.True,
+			);
+		}
+
+		if (syllable.emptyBeat !== undefined) {
+			containerSpan.setAttributeNS(
+				NS.AMLL,
+				QualifiedAttributes.AmllEmptyBeat,
+				syllable.emptyBeat.toString(),
 			);
 		}
 
@@ -499,8 +507,16 @@ export class TTMLGenerator {
 		if (syllable.obscene) {
 			span.setAttributeNS(
 				NS.AMLL,
-				QualifiedAttributes.AmlloObscene,
+				QualifiedAttributes.AmllObscene,
 				Values.True,
+			);
+		}
+
+		if (syllable.emptyBeat !== undefined) {
+			span.setAttributeNS(
+				NS.AMLL,
+				QualifiedAttributes.AmllEmptyBeat,
+				syllable.emptyBeat.toString(),
 			);
 		}
 

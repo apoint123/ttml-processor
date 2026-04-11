@@ -386,6 +386,17 @@ describe("TTML Integration Test", () => {
 		expect(l1.words?.[1].obscene).toBeUndefined();
 	});
 
+	test("L1: 应当正确解析普通音节的空拍标记 (amll:empty-beat)", () => {
+		const l1 = getLine("L1");
+		expect(l1.words).toBeDefined();
+
+		expect(l1.words?.[2].text).toBe("テスト");
+		expect(l1.words?.[2].emptyBeat).toBe(5);
+
+		expect(l1.words?.[1].text).toBe("は");
+		expect(l1.words?.[1].emptyBeat).toBeUndefined();
+	});
+
 	test("Edge Cases: 应当验证所有时间都是有效数字", () => {
 		for (const line of result.lines) {
 			expect(typeof line.startTime).toBe("number");
@@ -496,6 +507,16 @@ describe("toAmllLyrics Conversion", () => {
 
 		expect(l1.words[1].word).toBe("は ");
 		expect(l1.words[1].obscene).toBeUndefined();
+	});
+
+	test("Main Lyrics: 应当正确将 emptyBeat 属性透传到 AmllLyricWord", () => {
+		const l1 = amllLines[0];
+
+		expect(l1.words[2].word).toBe("テスト");
+		expect(l1.words[2].emptyBeat).toBe(5);
+
+		expect(l1.words[1].word).toBe("は ");
+		expect(l1.words[1].emptyBeat).toBeUndefined();
 	});
 
 	const toLayoutSnapshot = (lines: AmllLyricLine[]) =>

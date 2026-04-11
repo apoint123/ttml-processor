@@ -756,9 +756,23 @@ export class TTMLParser {
 			containerEl,
 			NS.AMLL,
 			Attributes.Obscene,
-			QualifiedAttributes.AmlloObscene,
+			QualifiedAttributes.AmllObscene,
 		);
 		const isObscene = obsceneAttr === "true";
+
+		const emptyBeatAttr = this.getAttr(
+			containerEl,
+			NS.AMLL,
+			Attributes.EmptyBeat,
+			QualifiedAttributes.AmllEmptyBeat,
+		);
+		let emptyBeat: number | undefined;
+		if (emptyBeatAttr) {
+			const parsedBeat = parseInt(emptyBeatAttr, 10);
+			if (!Number.isNaN(parsedBeat)) {
+				emptyBeat = parsedBeat;
+			}
+		}
 
 		let baseText = "";
 		const rubyTags: { text: string; startTime: number; endTime: number }[] = [];
@@ -845,6 +859,7 @@ export class TTMLParser {
 				ruby: rubyTags.length > 0 ? rubyTags : undefined,
 				endsWithSpace: endsWithSpace,
 				obscene: isObscene ? true : undefined,
+				emptyBeat,
 			});
 		}
 	}
@@ -857,9 +872,23 @@ export class TTMLParser {
 			el,
 			NS.AMLL,
 			Attributes.Obscene,
-			QualifiedAttributes.AmlloObscene,
+			QualifiedAttributes.AmllObscene,
 		);
 		const isObscene = obsceneAttr === "true";
+
+		const emptyBeatAttr = this.getAttr(
+			el,
+			NS.AMLL,
+			Attributes.EmptyBeat,
+			QualifiedAttributes.AmllEmptyBeat,
+		);
+		let emptyBeat: number | undefined;
+		if (emptyBeatAttr) {
+			const parsedBeat = parseInt(emptyBeatAttr, 10);
+			if (!Number.isNaN(parsedBeat)) {
+				emptyBeat = parsedBeat;
+			}
+		}
 
 		const rawWText = el.textContent || "";
 		const normalizedWText = this.normalizeText(rawWText, false);
@@ -890,6 +919,7 @@ export class TTMLParser {
 					endTime: this.parseTime(wEnd),
 					endsWithSpace: endsWithSpace,
 					obscene: isObscene ? true : undefined,
+					emptyBeat,
 				});
 			}
 		}

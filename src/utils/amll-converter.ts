@@ -34,6 +34,7 @@ export function toAmllLyrics(
 				word: w.text + (w.endsWithSpace ? " " : ""),
 				romanWord: "",
 				obscene: w.obscene,
+				emptyBeat: w.emptyBeat,
 			}));
 		} else {
 			amllWords = [
@@ -305,6 +306,7 @@ function convertWords(amllLine: AmllLyricLine) {
 			endTime: word.endTime,
 			endsWithSpace: hasSpace,
 			obscene: word.obscene,
+			emptyBeat: word.emptyBeat,
 		});
 
 		if (word.romanWord) {
