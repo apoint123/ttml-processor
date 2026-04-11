@@ -403,8 +403,8 @@ export class TTMLGenerator {
 			this.appendSubLyrics(element, content);
 		}
 
-		if (content.backgroundVocals && content.backgroundVocals.length > 0) {
-			this.appendBackgroundVocals(element, content.backgroundVocals);
+		if (content.backgroundVocal) {
+			this.appendBackgroundVocal(element, content.backgroundVocal);
 		}
 	}
 
@@ -537,24 +537,22 @@ export class TTMLGenerator {
 		}
 	}
 
-	private appendBackgroundVocals(
+	private appendBackgroundVocal(
 		element: Element,
-		vocals: LyricBase[] | SubLyricContent[],
+		bg: LyricBase | SubLyricContent,
 	) {
-		vocals.forEach((bg) => {
-			const bgSpan = this.doc.createElement(Elements.Span);
-			bgSpan.setAttributeNS(NS.TTM, QualifiedAttributes.TTMRole, Values.RoleBg);
+		const bgSpan = this.doc.createElement(Elements.Span);
+		bgSpan.setAttributeNS(NS.TTM, QualifiedAttributes.TTMRole, Values.RoleBg);
 
-			if (this.isLyricBase(bg)) {
-				if (bg.startTime > 0 && bg.endTime > 0) {
-					bgSpan.setAttribute(Attributes.Begin, this.formatTime(bg.startTime));
-					bgSpan.setAttribute(Attributes.End, this.formatTime(bg.endTime));
-				}
+		if (this.isLyricBase(bg)) {
+			if (bg.startTime > 0 && bg.endTime > 0) {
+				bgSpan.setAttribute(Attributes.Begin, this.formatTime(bg.startTime));
+				bgSpan.setAttribute(Attributes.End, this.formatTime(bg.endTime));
 			}
+		}
 
-			this.appendContentToElement(bgSpan, bg, true);
-			element.appendChild(bgSpan);
-		});
+		this.appendContentToElement(bgSpan, bg, true);
+		element.appendChild(bgSpan);
 	}
 
 	private formatTime(ms: number): string {

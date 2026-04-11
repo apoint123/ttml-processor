@@ -64,7 +64,7 @@ export interface SubLyricContent {
 	/**
 	 * 嵌套的背景人声翻译/音译内容
 	 */
-	backgroundVocals?: SubLyricContent[];
+	backgroundVocal?: SubLyricContent;
 }
 
 /**
@@ -107,7 +107,7 @@ export interface LyricBase {
 	/**
 	 * 背景人声内容
 	 */
-	backgroundVocals?: LyricBase[];
+	backgroundVocal?: LyricBase;
 }
 
 /**

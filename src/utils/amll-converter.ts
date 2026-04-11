@@ -125,11 +125,13 @@ export function toAmllLyrics(
 		const amllMain = convertToAmllLine(line, false, currentIsDuet);
 		amllLines.push(amllMain);
 
-		if (line.backgroundVocals) {
-			for (const bg of line.backgroundVocals) {
-				const simpleBg = convertToAmllLine(bg, true, currentIsDuet);
-				amllLines.push(simpleBg);
-			}
+		if (line.backgroundVocal) {
+			const simpleBg = convertToAmllLine(
+				line.backgroundVocal,
+				true,
+				currentIsDuet,
+			);
+			amllLines.push(simpleBg);
 		}
 	}
 
@@ -255,15 +257,8 @@ export function toTTMLResult(
 		}
 
 		if (amllLine.isBG) {
-			if (
-				currentMainLine &&
-				(!currentMainLine.backgroundVocals ||
-					currentMainLine.backgroundVocals.length === 0)
-			) {
-				if (!currentMainLine.backgroundVocals) {
-					currentMainLine.backgroundVocals = [];
-				}
-				currentMainLine.backgroundVocals.push(lyricBase);
+			if (currentMainLine && !currentMainLine.backgroundVocal) {
+				currentMainLine.backgroundVocal = lyricBase;
 			} else {
 				const inheritedAgentId = currentMainLine
 					? currentMainLine.agentId

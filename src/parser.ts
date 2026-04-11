@@ -33,7 +33,7 @@ interface IParsedState {
 	words: Syllable[];
 	translations: SubLyricContent[];
 	romanizations: { text: string; language?: string }[];
-	backgroundVocals: LyricBase[];
+	backgroundVocal?: LyricBase;
 }
 
 export class TTMLParser {
@@ -121,7 +121,7 @@ export class TTMLParser {
 		const hasWordTiming = lines.some(
 			(line) =>
 				(line.words?.length ?? 0) > 1 ||
-				line.backgroundVocals?.some((bg) => (bg.words?.length ?? 0) > 1),
+				(line.backgroundVocal?.words?.length ?? 0) > 1,
 		);
 
 		return hasWordTiming ? "Word" : "Line";
@@ -309,12 +309,15 @@ export class TTMLParser {
 		}
 	}
 
-	private toTranslatedContent(base: LyricBase): SubLyricContent {
+	private toTranslatedContent(
+		base: LyricBase,
+		ignoreWords: boolean = false,
+	): SubLyricContent {
 		const content: SubLyricContent = {
 			text: this.normalizeText(base.text),
 		};
 
-		if (base.words && base.words.length > 0) {
+		if (!ignoreWords && base.words && base.words.length > 0) {
 			const isZeroFallback =
 				base.words.length === 1 &&
 				base.words[0].startTime === 0 &&
@@ -325,9 +328,10 @@ export class TTMLParser {
 			}
 		}
 
-		if (base.backgroundVocals && base.backgroundVocals.length > 0) {
-			content.backgroundVocals = base.backgroundVocals.map((bg) =>
-				this.toTranslatedContent(bg),
+		if (base.backgroundVocal) {
+			content.backgroundVocal = this.toTranslatedContent(
+				base.backgroundVocal,
+				ignoreWords,
 			);
 		}
 
@@ -481,37 +485,33 @@ export class TTMLParser {
 	): T {
 		(target[field] ??= []).push(...source);
 
-		if (!target.backgroundVocals || target.backgroundVocals.length === 0) {
+		if (!target.backgroundVocal) {
 			return target;
 		}
 
-		for (let i = 0; i < target.backgroundVocals.length; i++) {
-			const targetBg = target.backgroundVocals[i];
+		const bgContentsToMerge: SubLyricContent[] = [];
 
-			const bgContentsToMerge: SubLyricContent[] = [];
+		for (const srcItem of source) {
+			const srcBg = srcItem.backgroundVocal;
+			if (!srcBg) continue;
 
-			for (const srcItem of source) {
-				const srcBg = srcItem.backgroundVocals?.[i];
-				if (!srcBg) continue;
+			const bgContent: SubLyricContent = {
+				language: srcItem.language,
+				text: srcBg.text,
+			};
 
-				const bgContent: SubLyricContent = {
-					language: srcItem.language,
-					text: srcBg.text,
-				};
-
-				if (srcBg.words && srcBg.words.length > 0) {
-					bgContent.words = srcBg.words;
-				}
-				if (srcBg.backgroundVocals && srcBg.backgroundVocals.length > 0) {
-					bgContent.backgroundVocals = srcBg.backgroundVocals;
-				}
-
-				bgContentsToMerge.push(bgContent);
+			if (srcBg.words && srcBg.words.length > 0) {
+				bgContent.words = srcBg.words;
+			}
+			if (srcBg.backgroundVocal) {
+				bgContent.backgroundVocal = srcBg.backgroundVocal;
 			}
 
-			if (bgContentsToMerge.length > 0) {
-				(targetBg[field] ??= []).push(...bgContentsToMerge);
-			}
+			bgContentsToMerge.push(bgContent);
+		}
+
+		if (bgContentsToMerge.length > 0) {
+			(target.backgroundVocal[field] ??= []).push(...bgContentsToMerge);
 		}
 
 		return target;
@@ -583,7 +583,7 @@ export class TTMLParser {
 			originalStartTime,
 			originalEndTime,
 			state.words,
-			state.backgroundVocals,
+			state.backgroundVocal,
 		);
 
 		const cleanFullText = this.normalizeText(state.fullText);
@@ -607,7 +607,7 @@ export class TTMLParser {
 			words: [],
 			translations: [],
 			romanizations: [],
-			backgroundVocals: [],
+			backgroundVocal: undefined,
 		};
 
 		const childNodes = Array.from(element.childNodes);
@@ -626,12 +626,15 @@ export class TTMLParser {
 		originalStart: number,
 		originalEnd: number,
 		words: Syllable[],
-		bgVocals: LyricBase[],
+		bgVocal?: LyricBase,
 	): { startTime: number; endTime: number } {
 		let startTime = originalStart;
 		let endTime = originalEnd;
 
-		const timedElements = [...words, ...bgVocals];
+		const timedElements = [...words];
+		if (bgVocal) {
+			timedElements.push(bgVocal);
+		}
 
 		if (timedElements.length > 0) {
 			let minChildStart = Infinity;
@@ -688,8 +691,7 @@ export class TTMLParser {
 				state.translations.length > 0 ? state.translations : undefined,
 			romanizations:
 				state.romanizations.length > 0 ? state.romanizations : undefined,
-			backgroundVocals:
-				state.backgroundVocals.length > 0 ? state.backgroundVocals : undefined,
+			backgroundVocal: state.backgroundVocal,
 		};
 	}
 
@@ -731,7 +733,7 @@ export class TTMLParser {
 
 		switch (role) {
 			case Values.RoleBg:
-				state.backgroundVocals.push(this.parseBackgroundVocal(el));
+				state.backgroundVocal = this.parseBackgroundVocal(el);
 				break;
 			case Values.RoleTranslation: {
 				const translation = this.parseInlineSubContent(el);
@@ -898,14 +900,9 @@ export class TTMLParser {
 		const lang = this.getAttr(el, NS.XML, Attributes.Lang);
 		const parsed = this.parseCommonContent(el);
 
-		if (
-			parsed.text ||
-			(parsed.backgroundVocals && parsed.backgroundVocals.length > 0)
-		) {
-			const content = this.toTranslatedContent(parsed);
-
+		if (parsed.text || parsed.backgroundVocal) {
 			// 内联的音译和翻译不会出现逐字内容，只有 sidecar 里才会有逐字翻译和音译
-			delete content.words;
+			const content = this.toTranslatedContent(parsed, true);
 
 			if (lang) {
 				content.language = lang;

@@ -193,7 +193,7 @@ describe("TTML Generator - toTTMLResult Integration Test", () => {
 		expect(ttmlResult.metadata.title).toEqual(["Test Song"]);
 		expect(ttmlResult.metadata.artist).toEqual(["Artist A", "Artist B"]);
 		expect(ttmlResult.lines.length).toBe(1);
-		expect(ttmlResult.lines[0].backgroundVocals?.length).toBe(1);
+		expect(ttmlResult.lines[0].backgroundVocal).toBeDefined();
 
 		const xml = generator.generate(ttmlResult);
 		expect(xml).toContain("<tt");
@@ -205,7 +205,7 @@ describe("TTML Generator - toTTMLResult Integration Test", () => {
 		expect(parsed.metadata.title).toEqual(["Test Song"]);
 		expect(parsed.lines.length).toBe(1);
 		expect(parsed.lines[0].text).toBe("你好");
-		expect(parsed.lines[0].backgroundVocals?.[0].text).toBe("世界");
+		expect(parsed.lines[0].backgroundVocal?.text).toBe("世界");
 	});
 });
 

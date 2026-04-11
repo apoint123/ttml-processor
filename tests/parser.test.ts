@@ -137,10 +137,10 @@ describe("TTML Integration Test", () => {
 
 		expect(l3.text).toContain("コーラス です");
 
-		expect(l3.backgroundVocals).toBeDefined();
-		expect(l3.backgroundVocals).toHaveLength(1);
+		expect(l3.backgroundVocal).toBeDefined();
+		expect(l3.backgroundVocal).toBeDefined();
 
-		const bg = l3.backgroundVocals?.[0];
+		const bg = l3.backgroundVocal;
 		if (!bg) throw new Error("背景人声数组中未找到数据");
 
 		expect(bg.text).toBe("背景");
@@ -154,7 +154,7 @@ describe("TTML Integration Test", () => {
 
 	test("L3: 应当同时保留 Body 内联翻译(en)和 Head 注入翻译(en-US)", () => {
 		const l3 = getLine("L3");
-		const bg = l3.backgroundVocals?.[0];
+		const bg = l3.backgroundVocal;
 		if (!bg) throw new Error("背景人声数组中未找到数据");
 
 		const transEn = getTranslation(bg, "en");
@@ -280,7 +280,7 @@ describe("TTML Integration Test", () => {
 
 	test("L3: 应当解析背景人声的时间和逐字信息", () => {
 		const l3 = getLine("L3");
-		const bg = l3.backgroundVocals?.[0];
+		const bg = l3.backgroundVocal;
 		if (!bg) throw new Error("未找到背景人声");
 
 		expect(bg.startTime).toBe(22500);
@@ -293,7 +293,7 @@ describe("TTML Integration Test", () => {
 
 	test("L3: 应当解析背景人声音译的逐字时间", () => {
 		const l3 = getLine("L3");
-		const bg = l3.backgroundVocals?.[0];
+		const bg = l3.backgroundVocal;
 		if (!bg) throw new Error("未找到背景人声");
 
 		const roman = bg.romanizations?.find(
@@ -308,7 +308,7 @@ describe("TTML Integration Test", () => {
 
 	test("L3: 应当同时保留内嵌的逐行音译(Body)和Sidecar的逐字音译(Head)", () => {
 		const l3 = getLine("L3");
-		const bg = l3.backgroundVocals?.[0];
+		const bg = l3.backgroundVocal;
 		if (!bg) throw new Error("未找到背景人声");
 
 		const jaRomans =
@@ -339,9 +339,9 @@ describe("TTML Integration Test", () => {
 		const l3 = getLine("L3");
 		const translation = getTranslation(l3, "en-US");
 
-		expect(translation.backgroundVocals).toBeArray();
-		expect(translation.backgroundVocals).toHaveLength(1);
-		expect(translation.backgroundVocals?.[0]?.text).toBe("With background");
+		expect(translation.backgroundVocal).toBeObject();
+		expect(translation.backgroundVocal).toBeDefined;
+		expect(translation.backgroundVocal?.text).toBe("With background");
 	});
 
 	test("Text: 应当正确拼接完整文本", () => {
@@ -389,12 +389,14 @@ describe("TTML Integration Test", () => {
 				expect(word.endTime).toBeGreaterThanOrEqual(word.startTime);
 			});
 
-			line.backgroundVocals?.forEach((bg) => {
-				expect(typeof bg.startTime).toBe("number");
-				expect(typeof bg.endTime).toBe("number");
-				expect(bg.startTime).toBeGreaterThanOrEqual(0);
-				expect(bg.endTime).toBeGreaterThan(bg.startTime);
-			});
+			if (line.backgroundVocal) {
+				expect(typeof line.backgroundVocal.startTime).toBe("number");
+				expect(typeof line.backgroundVocal.endTime).toBe("number");
+				expect(line.backgroundVocal.startTime).toBeGreaterThanOrEqual(0);
+				expect(line.backgroundVocal.endTime).toBeGreaterThan(
+					line.backgroundVocal.startTime,
+				);
+			}
 		}
 	});
 
