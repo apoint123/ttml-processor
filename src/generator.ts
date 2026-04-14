@@ -43,7 +43,7 @@ export class TTMLGenerator {
 		this.options = options;
 
 		if (this.options.domImplementation) {
-			this.domImpl = this.options.domImplementation;
+			this.domImpl = this.options.domImplementation as DOMImplementation;
 		} else if (typeof document !== "undefined" && document.implementation) {
 			this.domImpl = document.implementation;
 		} else {

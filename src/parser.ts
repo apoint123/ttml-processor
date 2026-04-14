@@ -74,7 +74,7 @@ export class TTMLParser {
 	 */
 	constructor(options?: TTMLParserOptions) {
 		if (options?.domParser) {
-			this.domParser = options.domParser;
+			this.domParser = options.domParser as DOMParser;
 		} else if (typeof DOMParser !== "undefined") {
 			this.domParser = new DOMParser();
 		} else {

@@ -28,9 +28,9 @@
 	"devDependencies": {
 		"@biomejs/biome": "^2.4.11",
 		"@types/bun": "=1.3.12",
-		"@typescript/native-preview": "=7.0.0-dev.20260411.1",
-		"@xmldom/xmldom": "=0.8.12",
-		"tsdown": "^0.21.7"
+		"@typescript/native-preview": "=7.0.0-dev.20260413.1",
+		"@xmldom/xmldom": "^0.9.9",
+		"tsdown": "^0.21.8"
 	},
 	"packageManager": "bun@1.3.12"
 }
