@@ -68,12 +68,12 @@ export interface SubLyricContent {
 	 * 逐字音节信息
 	 */
 	words?: Syllable[];
-
-	/**
-	 * 嵌套的背景人声翻译/音译内容
-	 */
-	backgroundVocal?: SubLyricContent;
 }
+
+/**
+ * 背景人声内容
+ */
+export type BackgroundVocal = Omit<LyricBase, "backgroundVocal">;
 
 /**
  * 基础歌词内容
@@ -115,7 +115,7 @@ export interface LyricBase {
 	/**
 	 * 背景人声内容
 	 */
-	backgroundVocal?: LyricBase;
+	backgroundVocal?: BackgroundVocal;
 }
 
 /**
