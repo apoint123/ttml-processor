@@ -521,6 +521,7 @@ export class TTMLParser {
 		if (!body) return;
 
 		const childNodes = Array.from(body.childNodes);
+		let currentBlockIndex = 0;
 
 		for (const node of childNodes) {
 			if (node.nodeType !== NodeType.ELEMENT_NODE) continue;
@@ -529,6 +530,8 @@ export class TTMLParser {
 			const tagName = el.localName || el.tagName.toLowerCase().split(":").pop();
 
 			if (tagName === Elements.Div) {
+				currentBlockIndex++;
+
 				const songPart =
 					this.getAttr(el, NS.ITUNES, Attributes.SongPartKebab) ||
 					this.getAttr(el, NS.ITUNES, Attributes.SongPart);
@@ -540,10 +543,23 @@ export class TTMLParser {
 						: Array.from(el.getElementsByTagName(Elements.P));
 
 				for (const p of pList) {
-					this.processLineElement(p, result.lines, sidecar, songPart);
+					this.processLineElement(
+						p,
+						result.lines,
+						sidecar,
+						songPart,
+						currentBlockIndex,
+					);
 				}
 			} else if (tagName === Elements.P) {
-				this.processLineElement(el, result.lines, sidecar);
+				currentBlockIndex++;
+				this.processLineElement(
+					el,
+					result.lines,
+					sidecar,
+					undefined,
+					currentBlockIndex,
+				);
 			}
 		}
 	}
@@ -553,6 +569,7 @@ export class TTMLParser {
 		lines: LyricLine[],
 		sidecar: IExtensionSidecar,
 		songPart?: string | null,
+		blockIndex?: number,
 	) {
 		const id = this.getAttr(p, NS.ITUNES, Attributes.Key);
 		if (!id) return;
@@ -565,6 +582,7 @@ export class TTMLParser {
 		};
 
 		if (songPart) line.songPart = songPart;
+		if (blockIndex !== undefined) line.blockIndex = blockIndex;
 
 		const agentId = this.getAttr(p, NS.TTM, Elements.Agent);
 		if (agentId) line.agentId = agentId;
