@@ -1,11 +1,9 @@
-import { defineConfig, type UserConfig } from "tsdown";
+import { defineConfig } from "tsdown";
 
-const buildConfig: UserConfig = defineConfig({
+export default defineConfig({
 	entry: ["./src/index.ts"],
 	format: ["esm", "cjs"],
 	dts: true,
 	sourcemap: true,
 	clean: true,
 });
-
-export default buildConfig;

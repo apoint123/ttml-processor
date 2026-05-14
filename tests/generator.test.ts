@@ -1,7 +1,7 @@
-import { beforeAll, describe, expect, it } from "bun:test";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { DOMImplementation, DOMParser, XMLSerializer } from "@xmldom/xmldom";
+import { beforeAll, describe, expect, it } from "vitest";
 import type { AmllLyricLine, AmllMetadata, TTMLResult } from "@/index";
 import { TTMLGenerator, TTMLParser, toTTMLResult } from "@/index";
 
